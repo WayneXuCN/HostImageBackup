@@ -1,11 +1,21 @@
-import typer
 from pathlib import Path
-from typing import Optional
 
+import typer
 from loguru import logger
+from rich import print
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 from .config import AppConfig
 from .service import BackupService
+
+app = typer.Typer(
+    name="host-image-backup",
+    no_args_is_help=False,
+)
+console = Console()
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -17,38 +27,38 @@ def setup_logging(verbose: bool = False) -> None:
         Whether to enable verbose logging.
     """
     level = "DEBUG" if verbose else "INFO"
-    logger.remove()  # Remove default handler
+    logger.remove()  # Remove default logger
     logger.add(
         "logs/host_image_backup_{time}.log",
-        rotation="10 MB",
+        rotation="5 MB",
         retention="1 week",
         compression="zip",
         level=level,
         format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}",
     )
-    logger.add(
-        lambda msg: print(msg, end=""),
-        level=level,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-    )
+    if verbose:
+        logger.add(
+            lambda msg: print(msg, end=""),
+            level=level,
+            format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        )
 
 
-app = typer.Typer(
-    name="host-image-backup",
-    help="Host Image Backup - Image Hosting Backup Tool",
-    no_args_is_help=True,
-)
-
-
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main(
-    config: Optional[Path] = typer.Option(
-        None, "--config", "-c", exists=True, help="Configuration file path"
+    config: Path | None = typer.Option(
+        None, "--config", "-c", exists=True, 
+        help="Configuration file path [default: ~/.config/host-image-backup/config.yaml]"
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed logs"),
+    ctx: typer.Context = typer.Option(...),
 ) -> None:
-    """Host Image Backup - Image Hosting Backup Tool"""
     setup_logging(verbose)
+
+    # if there is no arguments, show help
+    if ctx.invoked_subcommand is None:
+        console.print(ctx.get_help())
+        raise typer.Exit(code=0)
 
     # Load configuration
     app_config = AppConfig.load(config)
@@ -57,80 +67,51 @@ def main(
     backup_service = BackupService(app_config)
 
     # Store in app context
-    app.config = app_config
-    app.service = backup_service
-    app.verbose = verbose
+    app.config = app_config  # type: ignore
+    app.service = backup_service  # type: ignore
+    app.verbose = verbose  # type: ignore
 
 
 @app.command()
 def init() -> None:
     """Initialize configuration file"""
-    config: AppConfig = app.config
+    config: AppConfig = app.config  # type: ignore
+
+    # Check if config file already exists
+    config_file = AppConfig.get_config_file()
+    if config_file.exists():
+        console.print(
+            Panel(
+                f"[yellow]Configuration file already exists: {config_file}[/yellow]",
+                title="Warning",
+                border_style="yellow",
+            )
+        )
+        
+        # Ask user if they want to overwrite
+        confirm = typer.confirm("Do you want to overwrite the existing configuration?")
+        if not confirm:
+            console.print("[blue]Operation cancelled.[/blue]")
+            raise typer.Exit(code=0)
 
     # Create default configuration
     config.create_default_config()
 
-    config_file = AppConfig.get_config_file()
-    typer.echo(f"✅ Configuration file created: {config_file}")
-    typer.echo(
-        "Please edit the configuration file and add your image hosting configuration information."
+    console.print(
+        Panel(
+            f"[green]Configuration file created: {config_file}[/green]\n"
+            "[yellow]Please edit the configuration file and add your image hosting configuration information.[/yellow]",
+            title="Configuration Created",
+            border_style="green",
+        )
     )
-
-    # Show configuration file example
-    typer.echo("\nConfiguration file example:")
-    typer.echo("""
-# Application configuration
-default_output_dir: "./backup"
-max_concurrent_downloads: 5
-timeout: 30
-retry_count: 3
-log_level: "INFO"
-
-# Provider configuration
-providers:
-  oss:
-    enabled: true
-    prefix: "images/"
-    access_key_id: "your_access_key"
-    access_key_secret: "your_secret_key"
-    bucket: "your_bucket_name"
-    endpoint: "oss-cn-hangzhou.aliyuncs.com"
-  
-  cos:
-    enabled: true
-    prefix: "images/"
-    secret_id: "your_secret_id"
-    secret_key: "your_secret_key"
-    bucket: "your_bucket_name"
-    region: "ap-guangzhou"
-  
-  sms:
-    enabled: true
-    api_token: "your_api_token"
-  
-  imgur:
-    enabled: true
-    client_id: "your_client_id"
-    client_secret: "your_client_secret"
-    access_token: "your_access_token"
-    refresh_token: "your_refresh_token"
-  
-  github:
-    enabled: true
-    token: "your_github_token"
-    owner: "your_username"
-    repo: "your_repo_name"
-    path: "images/"
-""")
 
 
 @app.command()
 def backup(
     provider: str = typer.Argument(..., help="Provider name"),
-    output: Optional[Path] = typer.Option(
-        None, "--output", "-o", help="Output directory"
-    ),
-    limit: Optional[int] = typer.Option(
+    output: Path | None = typer.Option(None, "--output", "-o", help="Output directory"),
+    limit: int | None = typer.Option(
         None, "--limit", "-l", help="Limit download count"
     ),
     skip_existing: bool = typer.Option(
@@ -138,26 +119,33 @@ def backup(
     ),
 ) -> None:
     """Backup images from the specified provider"""
-    service: BackupService = app.service
-    config: AppConfig = app.config
-    verbose: bool = app.verbose
+    service: BackupService = app.service  # type: ignore
+    config: AppConfig = app.config  # type: ignore
+    verbose: bool = app.verbose  # type: ignore
 
     # Check if provider exists
     if provider not in service.list_providers():
-        typer.echo(f"❌ Unknown provider: {provider}")
-        typer.echo(f"Available providers: {', '.join(service.list_providers())}")
+        console.print(f"[red]Unknown provider: {provider}[/red]")
+        available_providers = ", ".join(service.list_providers())
+        console.print(f"[yellow]Available providers: {available_providers}[/yellow]")
         raise typer.Exit(code=1)
 
     # Set output directory
     output_dir = output if output else Path(config.default_output_dir)
 
-    typer.echo(f"Starting to backup images from {provider} to {output_dir}")
+    console.print(
+        Panel(
+            f"[cyan]Starting to backup images from {provider} to {output_dir}[/cyan]",
+            title="Backup Started",
+            border_style="blue",
+        )
+    )
 
     if limit:
-        typer.echo(f"Limit download count: {limit}")
+        console.print(f"[blue]Limit download count: {limit}[/blue]")
 
     if skip_existing:
-        typer.echo("Skip existing files")
+        console.print("[blue]Skip existing files[/blue]")
 
     # Execute backup
     success = service.backup_images(
@@ -169,54 +157,66 @@ def backup(
     )
 
     if success:
-        typer.echo("✅ Backup completed")
+        console.print()  # Add empty line before success message
+        console.print("[green]Backup completed successfully[/green]")
     else:
-        typer.echo("❌ Errors occurred during backup")
+        console.print()  # Add empty line before error message
+        console.print("[red]Errors occurred during backup[/red]")
         raise typer.Exit(code=1)
 
 
-@app.command("list-providers")
+@app.command("list")
 def list_providers() -> None:
     """List all available providers"""
-    service: BackupService = app.service
-    config: AppConfig = app.config
+    service: BackupService = app.service  # type: ignore
+    config: AppConfig = app.config  # type: ignore
 
     providers = service.list_providers()
 
-    typer.echo("Available providers:")
+    table = Table(
+        title="Available Providers", show_header=True, header_style="bold magenta"
+    )
+    table.add_column("Status", style="bold", width=12)
+    table.add_column("Provider Name")
+
     for provider_name in providers:
         status = (
-            "✅"
+            "[green]Enabled[/green]"
             if provider_name in config.providers
             and config.providers[provider_name].enabled
-            else "❌"
+            else "[red]Disabled[/red]"
         )
-        typer.echo(f"  {status} {provider_name}")
+        table.add_row(status, provider_name)
+
+    console.print(table)
 
 
 @app.command()
 def test(provider: str = typer.Argument(..., help="Provider name")) -> None:
     """Test provider connection"""
-    service: BackupService = app.service
+    service: BackupService = app.service  # type: ignore
 
     if provider not in service.list_providers():
-        typer.echo(f"❌ Unknown provider: {provider}")
+        console.print(f"[red]Unknown provider: {provider}[/red]")
         raise typer.Exit(code=1)
 
-    typer.echo(f"Testing {provider} connection...")
+    console.print(f"[cyan]Testing {provider} connection...[/cyan]")
     success = service.test_provider(provider)
 
-    if not success:
+    if success:
+        console.print("[green]Connection test passed[/green]")
+    else:
+        console.print("[red]Connection test failed[/red]")
         raise typer.Exit(code=1)
 
 
 @app.command()
 def info(provider: str = typer.Argument(..., help="Provider name")) -> None:
     """Show provider detailed information"""
-    service: BackupService = app.service
+    service: BackupService = app.service  # type: ignore
 
     if provider not in service.list_providers():
-        typer.echo(f"❌ Unknown provider: {provider}")
+        console.print(f"[red]Unknown provider: {provider}[/red]")
         raise typer.Exit(code=1)
 
     service.show_provider_info(provider)
@@ -224,10 +224,8 @@ def info(provider: str = typer.Argument(..., help="Provider name")) -> None:
 
 @app.command("backup-all")
 def backup_all(
-    output: Optional[Path] = typer.Option(
-        None, "--output", "-o", help="Output directory"
-    ),
-    limit: Optional[int] = typer.Option(
+    output: Path | None = typer.Option(None, "--output", "-o", help="Output directory"),
+    limit: int | None = typer.Option(
         None, "--limit", "-l", help="Each provider's limit download count"
     ),
     skip_existing: bool = typer.Option(
@@ -235,9 +233,9 @@ def backup_all(
     ),
 ) -> None:
     """Backup images from all enabled providers"""
-    service: BackupService = app.service
-    config: AppConfig = app.config
-    verbose: bool = app.verbose
+    service: BackupService = app.service  # type: ignore
+    config: AppConfig = app.config  # type: ignore
+    verbose: bool = app.verbose  # type: ignore
 
     # Set output directory
     output_dir = output if output else Path(config.default_output_dir)
@@ -250,16 +248,29 @@ def backup_all(
     ]
 
     if not enabled_providers:
-        typer.echo("❌ No enabled and valid providers")
+        console.print("[red]No enabled and valid providers[/red]")
         raise typer.Exit(code=1)
 
-    typer.echo(f"Will backup the following providers: {', '.join(enabled_providers)}")
-    typer.echo(f"Output directory: {output_dir}")
+    providers_list = ", ".join(enabled_providers)
+    console.print(
+        Panel(
+            f"[cyan]Will backup the following providers: {providers_list}[/cyan]\n"
+            f"[blue]Output directory: {output_dir}[/blue]",
+            title="Backup All Providers",
+            border_style="blue",
+        )
+    )
 
     success_count = 0
 
     for provider_name in enabled_providers:
-        typer.echo(f"\nStarting to backup {provider_name}...")
+        console.print(
+            Panel(
+                f"[cyan]Starting to backup {provider_name}...[/cyan]",
+                title=f"Provider: {provider_name}",
+                border_style="yellow",
+            )
+        )
 
         success = service.backup_images(
             provider_name=provider_name,
@@ -272,11 +283,13 @@ def backup_all(
         if success:
             success_count += 1
         else:
-            typer.echo(f"❌ {provider_name} backup failed")
+            console.print(f"[red]{provider_name} backup failed[/red]")
 
-    typer.echo(
-        f"\nBackup completed: {success_count}/{len(enabled_providers)} providers backed up successfully"
+    result_text = Text(
+        f"\nBackup completed: {success_count}/{len(enabled_providers)} providers backed up successfully",
+        style="green" if success_count == len(enabled_providers) else "yellow",
     )
+    console.print(result_text)
 
     if success_count < len(enabled_providers):
         raise typer.Exit(code=1)

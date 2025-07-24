@@ -1,8 +1,8 @@
-import yaml
 from pathlib import Path
-from typing import Dict, Optional, Any
-from pydantic import BaseModel, Field, validator
+
+import yaml
 from loguru import logger
+from pydantic import BaseModel, Field, field_validator
 
 
 class ProviderConfig(BaseModel):
@@ -23,14 +23,14 @@ class ProviderConfig(BaseModel):
     >>> config.enabled
     True
     """
-    
+
     name: str
     enabled: bool = Field(default=True, description="Whether the provider is enabled")
     prefix: str = Field(default="", description="Prefix path for images")
-    
+
     def validate_config(self) -> bool:
         """Validate the provider configuration.
-        
+
         Returns
         -------
         bool
@@ -65,15 +65,15 @@ class OSSConfig(ProviderConfig):
     >>> config.validate_config()
     True
     """
-    
+
     access_key_id: str = Field(default="", description="OSS access key ID")
     access_key_secret: str = Field(default="", description="OSS access key secret")
     bucket: str = Field(default="", description="OSS bucket name")
     endpoint: str = Field(default="", description="OSS endpoint")
-    
+
     def validate_config(self) -> bool:
         """Validate OSS configuration.
-        
+
         Returns
         -------
         bool
@@ -83,7 +83,7 @@ class OSSConfig(ProviderConfig):
             self.access_key_id,
             self.access_key_secret,
             self.bucket,
-            self.endpoint
+            self.endpoint,
         ]
         return all(field.strip() for field in required_fields)
 
@@ -114,26 +114,21 @@ class COSConfig(ProviderConfig):
     >>> config.validate_config()
     True
     """
-    
+
     secret_id: str = Field(default="", description="COS secret ID")
     secret_key: str = Field(default="", description="COS secret key")
     bucket: str = Field(default="", description="COS bucket name")
     region: str = Field(default="", description="COS region")
-    
+
     def validate_config(self) -> bool:
         """Validate COS configuration.
-        
+
         Returns
         -------
         bool
             True if all required fields are provided, False otherwise.
         """
-        required_fields = [
-            self.secret_id,
-            self.secret_key,
-            self.bucket,
-            self.region
-        ]
+        required_fields = [self.secret_id, self.secret_key, self.bucket, self.region]
         return all(field.strip() for field in required_fields)
 
 
@@ -151,12 +146,12 @@ class SMSConfig(ProviderConfig):
     >>> config.validate_config()
     True
     """
-    
+
     api_token: str = Field(default="", description="SM.MS API token")
-    
+
     def validate_config(self) -> bool:
         """Validate SM.MS configuration.
-        
+
         Returns
         -------
         bool
@@ -190,25 +185,21 @@ class ImgurConfig(ProviderConfig):
     >>> config.validate_config()
     True
     """
-    
+
     client_id: str = Field(default="", description="Imgur client ID")
     client_secret: str = Field(default="", description="Imgur client secret")
     access_token: str = Field(default="", description="Imgur access token")
     refresh_token: str = Field(default="", description="Imgur refresh token")
-    
+
     def validate_config(self) -> bool:
         """Validate Imgur configuration.
-        
+
         Returns
         -------
         bool
             True if required fields are provided, False otherwise.
         """
-        required_fields = [
-            self.client_id,
-            self.client_secret,
-            self.access_token
-        ]
+        required_fields = [self.client_id, self.client_secret, self.access_token]
         return all(field.strip() for field in required_fields)
 
 
@@ -237,25 +228,21 @@ class GitHubConfig(ProviderConfig):
     >>> config.validate_config()
     True
     """
-    
+
     token: str = Field(default="", description="GitHub personal access token")
     owner: str = Field(default="", description="Repository owner")
     repo: str = Field(default="", description="Repository name")
     path: str = Field(default="", description="Path within repository")
-    
+
     def validate_config(self) -> bool:
         """Validate GitHub configuration.
-        
+
         Returns
         -------
         bool
             True if required fields are provided, False otherwise.
         """
-        required_fields = [
-            self.token,
-            self.owner,
-            self.repo
-        ]
+        required_fields = [self.token, self.owner, self.repo]
         return all(field.strip() for field in required_fields)
 
 
@@ -287,71 +274,64 @@ class AppConfig(BaseModel):
     >>> config.max_concurrent_downloads
     5
     """
-    
+
     default_output_dir: str = Field(
-        default="./backup",
-        description="Default output directory for backups"
+        default="./backup", description="Default output directory for backups"
     )
     max_concurrent_downloads: int = Field(
-        default=5,
-        ge=1,
-        le=20,
-        description="Maximum concurrent downloads"
+        default=5, ge=1, le=20, description="Maximum concurrent downloads"
     )
     timeout: int = Field(
-        default=30,
-        ge=5,
-        le=300,
-        description="Request timeout in seconds"
+        default=30, ge=5, le=300, description="Request timeout in seconds"
     )
     retry_count: int = Field(
-        default=3,
-        ge=0,
-        le=10,
-        description="Number of retry attempts"
+        default=3, ge=0, le=10, description="Number of retry attempts"
     )
     chunk_size: int = Field(
-        default=8192,
-        ge=1024,
-        description="Download chunk size in bytes"
+        default=8192, ge=1024, description="Download chunk size in bytes"
     )
-    log_level: str = Field(
-        default="INFO",
-        description="Logging level"
+    log_level: str = Field(default="INFO", description="Logging level")
+    providers: dict = Field(
+        default_factory=dict, description="Provider configurations"
     )
-    providers: Dict[str, ProviderConfig] = Field(
-        default_factory=dict,
-        description="Provider configurations"
-    )
-    
-    @validator('log_level')
+
+    @field_validator("log_level", mode="before")
+    @classmethod
     def validate_log_level(cls, v):
         """Validate log level value.
-        
+
         Parameters
         ----------
         v : str
             The log level value to validate.
-            
+
         Returns
         -------
         str
             The validated log level.
-            
+
         Raises
         ------
         ValueError
             If log level is invalid.
         """
-        valid_levels = ['TRACE', 'DEBUG', 'INFO', 'SUCCESS', 'WARNING', 'ERROR', 'CRITICAL']
-        if v.upper() not in valid_levels:
-            raise ValueError(f"Invalid log level. Must be one of: {valid_levels}")
-        return v.upper()
-    
+        valid_levels = [
+            "TRACE",
+            "DEBUG",
+            "INFO",
+            "SUCCESS",
+            "WARNING",
+            "ERROR",
+            "CRITICAL",
+        ]
+        if isinstance(v, str) and v.upper() in valid_levels:
+            return v.upper()
+        raise ValueError(f"Invalid log level. Must be one of: {valid_levels}")
+
     @classmethod
     def get_config_dir(cls) -> Path:
         """Get configuration directory path.
-        
+
         Returns
         -------
         Path
@@ -360,32 +340,32 @@ class AppConfig(BaseModel):
         config_dir = Path.home() / ".config" / "host-image-backup"
         config_dir.mkdir(parents=True, exist_ok=True)
         return config_dir
-    
+
     @classmethod
     def get_config_file(cls) -> Path:
         """Get configuration file path.
-        
+
         Returns
         -------
         Path
             Path to the configuration file.
         """
         return cls.get_config_dir() / "config.yaml"
-    
+
     @classmethod
-    def load(cls, config_path: Optional[Path] = None) -> "AppConfig":
+    def load(cls, config_path: Path | None = None) -> "AppConfig":
         """Load configuration from file.
-        
+
         Parameters
         ----------
         config_path : Path, optional
             Path to configuration file. If None, uses default location.
-            
+
         Returns
         -------
         AppConfig
             Loaded configuration instance.
-            
+
         Raises
         ------
         FileNotFoundError
@@ -395,13 +375,13 @@ class AppConfig(BaseModel):
         """
         if config_path is None:
             config_path = cls.get_config_file()
-        
+
         if not config_path.exists():
             logger.warning(f"Configuration file not found: {config_path}")
             return cls()
-        
+
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
+            with open(config_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
         except yaml.YAMLError as e:
             logger.error(f"Failed to parse configuration file: {e}")
@@ -409,49 +389,48 @@ class AppConfig(BaseModel):
         except Exception as e:
             logger.error(f"Failed to read configuration file: {e}")
             raise
-        
+
         # Create base config
         config_data = {
-            'default_output_dir': data.get('default_output_dir', './backup'),
-            'max_concurrent_downloads': data.get('max_concurrent_downloads', 5),
-            'timeout': data.get('timeout', 30),
-            'retry_count': data.get('retry_count', 3),
-            'chunk_size': data.get('chunk_size', 8192),
-            'log_level': data.get('log_level', 'INFO'),
-            'providers': {}
+            "default_output_dir": data.get("default_output_dir", "./backup"),
+            "max_concurrent_downloads": data.get("max_concurrent_downloads", 5),
+            "timeout": data.get("timeout", 30),
+            "retry_count": data.get("retry_count", 3),
+            "chunk_size": data.get("chunk_size", 8192),
+            "log_level": data.get("log_level", "INFO"),
+            "providers": {},
         }
-        
+
         # Load provider configurations
-        providers_data = data.get('providers', {})
+        providers_data = data.get("providers", {})
         provider_classes = {
-            'oss': OSSConfig,
-            'cos': COSConfig,
-            'sms': SMSConfig,
-            'imgur': ImgurConfig,
-            'github': GitHubConfig
+            "oss": OSSConfig,
+            "cos": COSConfig,
+            "sms": SMSConfig,
+            "imgur": ImgurConfig,
+            "github": GitHubConfig,
         }
-        
+
         for provider_name, provider_class in provider_classes.items():
             if provider_name in providers_data:
                 provider_data = providers_data[provider_name]
                 try:
-                    config_data['providers'][provider_name] = provider_class(
-                        name=provider_name,
-                        **provider_data
+                    config_data["providers"][provider_name] = provider_class(
+                        name=provider_name, **provider_data
                     )
                 except Exception as e:
                     logger.warning(f"Failed to load {provider_name} config: {e}")
-        
+
         return cls(**config_data)
-    
-    def save(self, config_path: Optional[Path] = None) -> None:
+
+    def save(self, config_path: Path | None = None) -> None:
         """Save configuration to file.
-        
+
         Parameters
         ----------
         config_path : Path, optional
             Path to save configuration file. If None, uses default location.
-            
+
         Raises
         ------
         PermissionError
@@ -461,48 +440,50 @@ class AppConfig(BaseModel):
         """
         if config_path is None:
             config_path = self.get_config_file()
-        
+
         try:
             # Ensure directory exists
             config_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Prepare data for serialization
             data = {
-                'default_output_dir': self.default_output_dir,
-                'max_concurrent_downloads': self.max_concurrent_downloads,
-                'timeout': self.timeout,
-                'retry_count': self.retry_count,
-                'chunk_size': self.chunk_size,
-                'log_level': self.log_level,
-                'providers': {}
+                "default_output_dir": self.default_output_dir,
+                "max_concurrent_downloads": self.max_concurrent_downloads,
+                "timeout": self.timeout,
+                "retry_count": self.retry_count,
+                "chunk_size": self.chunk_size,
+                "log_level": self.log_level,
+                "providers": {},
             }
-            
+
             # Serialize provider configurations
             for name, provider in self.providers.items():
-                data['providers'][name] = provider.dict(exclude={'name'})
-            
-            with open(config_path, 'w', encoding='utf-8') as f:
-                yaml.dump(data, f, default_flow_style=False, allow_unicode=True, indent=2)
-                
+                data["providers"][name] = provider.dict(exclude={"name"})
+
+            with open(config_path, "w", encoding="utf-8") as f:
+                yaml.dump(
+                    data, f, default_flow_style=False, allow_unicode=True, indent=2
+                )
+
             logger.info(f"Configuration saved to: {config_path}")
-            
+
         except Exception as e:
             logger.error(f"Failed to save configuration: {e}")
             raise
-    
+
     def create_default_config(self) -> None:
         """Create default configuration with all providers.
-        
+
         This method initializes default configurations for all supported
         providers and saves them to the configuration file.
         """
         try:
             self.providers = {
-                'oss': OSSConfig(name='oss'),
-                'cos': COSConfig(name='cos'),
-                'sms': SMSConfig(name='sms'),
-                'imgur': ImgurConfig(name='imgur'),
-                'github': GitHubConfig(name='github')
+                "oss": OSSConfig(name="oss"),
+                "cos": COSConfig(name="cos"),
+                "sms": SMSConfig(name="sms"),
+                "imgur": ImgurConfig(name="imgur"),
+                "github": GitHubConfig(name="github"),
             }
             self.save()
             logger.success("Default configuration created successfully")
