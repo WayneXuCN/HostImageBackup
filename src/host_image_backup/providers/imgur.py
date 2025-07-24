@@ -1,8 +1,3 @@
-"""Imgur图床提供商
-
-This module provides the implementation for Imgur image hosting.
-"""
-
 import requests
 from typing import Iterator, Optional
 from pathlib import Path
@@ -15,7 +10,7 @@ from ..config import ImgurConfig
 
 
 class ImgurProvider(BaseProvider):
-    """Imgur图床提供商"""
+    """Imgur Provider"""
     
     def __init__(self, config: ImgurConfig):
         super().__init__(config)
@@ -24,7 +19,7 @@ class ImgurProvider(BaseProvider):
         self.api_base = "https://api.imgur.com/3"
     
     def test_connection(self) -> bool:
-        """测试Imgur连接
+        """Test Imgur connection
         
         Returns
         -------
@@ -40,11 +35,11 @@ class ImgurProvider(BaseProvider):
             )
             return response.status_code == 200
         except Exception as e:
-            self.logger.error(f"Imgur连接测试失败: {e}")
+            self.logger.error(f"Imgur connection test failed: {e}")
             return False
     
     def list_images(self, limit: Optional[int] = None) -> Iterator[ImageInfo]:
-        """列出Imgur中的所有图片
+        """List all images in Imgur
         
         Parameters
         ----------
@@ -65,7 +60,7 @@ class ImgurProvider(BaseProvider):
                 if limit and count >= limit:
                     break
                 
-                # 获取用户的图片
+                # Get user's images
                 response = requests.get(
                     f"{self.api_base}/account/me/images/{page}",
                     headers=headers,
@@ -73,7 +68,7 @@ class ImgurProvider(BaseProvider):
                 )
                 
                 if response.status_code != 200:
-                    self.logger.error(f"获取Imgur图片列表失败: {response.status_code}")
+                    self.logger.error(f"Failed to get Imgur image list: {response.status_code}")
                     break
                 
                 data = response.json()
@@ -89,7 +84,7 @@ class ImgurProvider(BaseProvider):
                     if limit and count >= limit:
                         break
                     
-                    # 获取文件名（从title或者link中提取）
+                    # Get filename (from title or extract from link)
                     filename = img.get('title') or Path(img['link']).name
                     if not filename.endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
                         filename += f".{img.get('type', 'jpg').split('/')[-1]}"
@@ -112,21 +107,21 @@ class ImgurProvider(BaseProvider):
                     )
                     count += 1
                 
-                # 如果返回的图片数量为0，说明没有更多图片了
+                # If the number of returned images is 0, there are no more images
                 if len(images) == 0:
                     break
                 
                 page += 1
                 
-                # 避免频繁请求，添加延迟
+                # Add delay to avoid frequent requests
                 time.sleep(0.1)
                 
         except Exception as e:
-            self.logger.error(f"列出Imgur图片失败: {e}")
+            self.logger.error(f"Failed to list Imgur images: {e}")
             raise
     
     def download_image(self, image_info: ImageInfo, output_path: Path) -> bool:
-        """从Imgur下载图片
+        """Download image from Imgur
         
         Parameters
         ----------
@@ -141,7 +136,7 @@ class ImgurProvider(BaseProvider):
             True if download is successful, False otherwise.
         """
         try:
-            # 确保输出目录存在
+            # Ensure the output directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
             
             response = requests.get(
@@ -155,15 +150,15 @@ class ImgurProvider(BaseProvider):
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
             
-            self.logger.debug(f"成功下载图片: {image_info.filename}")
+            self.logger.debug(f"Successfully downloaded image: {image_info.filename}")
             return True
             
         except Exception as e:
-            self.logger.error(f"下载图片失败 {image_info.filename}: {e}")
+            self.logger.error(f"Failed to download image {image_info.filename}: {e}")
             return False
     
     def get_image_count(self) -> Optional[int]:
-        """获取Imgur中的图片总数
+        """Get the total number of images in Imgur
         
         Returns
         -------
@@ -186,5 +181,5 @@ class ImgurProvider(BaseProvider):
             
             return None
         except Exception as e:
-            self.logger.warning(f"获取Imgur图片总数失败: {e}")
+            self.logger.warning(f"Failed to get the total number of Imgur images: {e}")
             return None

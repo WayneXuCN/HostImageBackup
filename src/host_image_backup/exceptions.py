@@ -1,9 +1,3 @@
-"""Custom exceptions for the host image backup application.
-
-This module defines custom exception classes to provide more specific
-error handling throughout the application.
-"""
-
 from typing import Optional, Any
 
 

@@ -1,9 +1,3 @@
-"""命令行界面模块
-
-This module provides the command-line interface for the host image backup tool
-using Typer for argument parsing and command management.
-"""
-
 import typer
 from pathlib import Path
 from typing import Optional
@@ -15,8 +9,8 @@ from .service import BackupService
 
 
 def setup_logging(verbose: bool = False) -> None:
-    """设置日志
-    
+    """Setup logging
+
     Parameters
     ----------
     verbose : bool, default=False
@@ -30,36 +24,38 @@ def setup_logging(verbose: bool = False) -> None:
         retention="1 week",
         compression="zip",
         level=level,
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}"
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}",
     )
     logger.add(
         lambda msg: print(msg, end=""),
         level=level,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
     )
 
 
 app = typer.Typer(
     name="host-image-backup",
-    help="Host Image Backup - 图床备份工具",
-    no_args_is_help=True
+    help="Host Image Backup - Image Hosting Backup Tool",
+    no_args_is_help=True,
 )
 
 
 @app.callback()
 def main(
-    config: Optional[Path] = typer.Option(None, "--config", "-c", exists=True, help="配置文件路径"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="显示详细日志")
+    config: Optional[Path] = typer.Option(
+        None, "--config", "-c", exists=True, help="Configuration file path"
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed logs"),
 ) -> None:
-    """Host Image Backup - 图床备份工具"""
+    """Host Image Backup - Image Hosting Backup Tool"""
     setup_logging(verbose)
-    
-    # 加载配置
+
+    # Load configuration
     app_config = AppConfig.load(config)
-    
-    # 创建备份服务
+
+    # Create backup service
     backup_service = BackupService(app_config)
-    
+
     # Store in app context
     app.config = app_config
     app.service = backup_service
@@ -68,27 +64,29 @@ def main(
 
 @app.command()
 def init() -> None:
-    """初始化配置文件"""
+    """Initialize configuration file"""
     config: AppConfig = app.config
-    
-    # 创建默认配置
+
+    # Create default configuration
     config.create_default_config()
-    
+
     config_file = AppConfig.get_config_file()
-    typer.echo(f"✅ 配置文件已创建: {config_file}")
-    typer.echo("请编辑配置文件，添加你的图床配置信息。")
-    
-    # 显示配置文件示例
-    typer.echo("\n配置文件示例：")
+    typer.echo(f"✅ Configuration file created: {config_file}")
+    typer.echo(
+        "Please edit the configuration file and add your image hosting configuration information."
+    )
+
+    # Show configuration file example
+    typer.echo("\nConfiguration file example:")
     typer.echo("""
-# 应用配置
+# Application configuration
 default_output_dir: "./backup"
 max_concurrent_downloads: 5
 timeout: 30
 retry_count: 3
 log_level: "INFO"
 
-# 提供商配置
+# Provider configuration
 providers:
   oss:
     enabled: true
@@ -128,138 +126,158 @@ providers:
 
 @app.command()
 def backup(
-    provider: str = typer.Argument(..., help="提供商名称"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="输出目录"),
-    limit: Optional[int] = typer.Option(None, "--limit", "-l", help="限制下载数量"),
-    skip_existing: bool = typer.Option(True, "--skip-existing/--no-skip-existing", help="跳过已存在的文件")
+    provider: str = typer.Argument(..., help="Provider name"),
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="Output directory"
+    ),
+    limit: Optional[int] = typer.Option(
+        None, "--limit", "-l", help="Limit download count"
+    ),
+    skip_existing: bool = typer.Option(
+        True, "--skip-existing/--no-skip-existing", help="Skip existing files"
+    ),
 ) -> None:
-    """备份指定提供商的图片"""
+    """Backup images from the specified provider"""
     service: BackupService = app.service
     config: AppConfig = app.config
     verbose: bool = app.verbose
-    
-    # 检查提供商是否存在
+
+    # Check if provider exists
     if provider not in service.list_providers():
-        typer.echo(f"❌ 未知的提供商: {provider}")
-        typer.echo(f"可用的提供商: {', '.join(service.list_providers())}")
+        typer.echo(f"❌ Unknown provider: {provider}")
+        typer.echo(f"Available providers: {', '.join(service.list_providers())}")
         raise typer.Exit(code=1)
-    
-    # 设置输出目录
+
+    # Set output directory
     output_dir = output if output else Path(config.default_output_dir)
-    
-    typer.echo(f"开始备份 {provider} 的图片到 {output_dir}")
-    
+
+    typer.echo(f"Starting to backup images from {provider} to {output_dir}")
+
     if limit:
-        typer.echo(f"限制下载数量: {limit}")
-    
+        typer.echo(f"Limit download count: {limit}")
+
     if skip_existing:
-        typer.echo("跳过已存在的文件")
-    
-    # 执行备份
+        typer.echo("Skip existing files")
+
+    # Execute backup
     success = service.backup_images(
         provider_name=provider,
         output_dir=output_dir,
         limit=limit,
         skip_existing=skip_existing,
-        verbose=verbose
+        verbose=verbose,
     )
-    
+
     if success:
-        typer.echo("✅ 备份完成")
+        typer.echo("✅ Backup completed")
     else:
-        typer.echo("❌ 备份过程中出现错误")
+        typer.echo("❌ Errors occurred during backup")
         raise typer.Exit(code=1)
 
 
 @app.command("list-providers")
 def list_providers() -> None:
-    """列出所有可用的提供商"""
+    """List all available providers"""
     service: BackupService = app.service
     config: AppConfig = app.config
-    
+
     providers = service.list_providers()
-    
-    typer.echo("可用的提供商：")
+
+    typer.echo("Available providers:")
     for provider_name in providers:
-        status = "✅" if provider_name in config.providers and config.providers[provider_name].enabled else "❌"
+        status = (
+            "✅"
+            if provider_name in config.providers
+            and config.providers[provider_name].enabled
+            else "❌"
+        )
         typer.echo(f"  {status} {provider_name}")
 
 
 @app.command()
-def test(provider: str = typer.Argument(..., help="提供商名称")) -> None:
-    """测试提供商连接"""
+def test(provider: str = typer.Argument(..., help="Provider name")) -> None:
+    """Test provider connection"""
     service: BackupService = app.service
-    
+
     if provider not in service.list_providers():
-        typer.echo(f"❌ 未知的提供商: {provider}")
+        typer.echo(f"❌ Unknown provider: {provider}")
         raise typer.Exit(code=1)
-    
-    typer.echo(f"测试 {provider} 连接...")
+
+    typer.echo(f"Testing {provider} connection...")
     success = service.test_provider(provider)
-    
+
     if not success:
         raise typer.Exit(code=1)
 
 
 @app.command()
-def info(provider: str = typer.Argument(..., help="提供商名称")) -> None:
-    """显示提供商详细信息"""
+def info(provider: str = typer.Argument(..., help="Provider name")) -> None:
+    """Show provider detailed information"""
     service: BackupService = app.service
-    
+
     if provider not in service.list_providers():
-        typer.echo(f"❌ 未知的提供商: {provider}")
+        typer.echo(f"❌ Unknown provider: {provider}")
         raise typer.Exit(code=1)
-    
+
     service.show_provider_info(provider)
 
 
 @app.command("backup-all")
 def backup_all(
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="输出目录"),
-    limit: Optional[int] = typer.Option(None, "--limit", "-l", help="每个提供商的限制下载数量"),
-    skip_existing: bool = typer.Option(True, "--skip-existing/--no-skip-existing", help="跳过已存在的文件")
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="Output directory"
+    ),
+    limit: Optional[int] = typer.Option(
+        None, "--limit", "-l", help="Each provider's limit download count"
+    ),
+    skip_existing: bool = typer.Option(
+        True, "--skip-existing/--no-skip-existing", help="Skip existing files"
+    ),
 ) -> None:
-    """备份所有启用的提供商的图片"""
+    """Backup images from all enabled providers"""
     service: BackupService = app.service
     config: AppConfig = app.config
     verbose: bool = app.verbose
-    
-    # 设置输出目录
+
+    # Set output directory
     output_dir = output if output else Path(config.default_output_dir)
-    
-    # 获取所有启用的提供商
+
+    # Get all enabled providers
     enabled_providers = [
-        name for name, provider_config in config.providers.items()
+        name
+        for name, provider_config in config.providers.items()
         if provider_config.enabled and provider_config.validate_config()
     ]
-    
+
     if not enabled_providers:
-        typer.echo("❌ 没有启用且配置有效的提供商")
+        typer.echo("❌ No enabled and valid providers")
         raise typer.Exit(code=1)
-    
-    typer.echo(f"将备份以下提供商: {', '.join(enabled_providers)}")
-    typer.echo(f"输出目录: {output_dir}")
-    
+
+    typer.echo(f"Will backup the following providers: {', '.join(enabled_providers)}")
+    typer.echo(f"Output directory: {output_dir}")
+
     success_count = 0
-    
+
     for provider_name in enabled_providers:
-        typer.echo(f"\n开始备份 {provider_name}...")
-        
+        typer.echo(f"\nStarting to backup {provider_name}...")
+
         success = service.backup_images(
             provider_name=provider_name,
             output_dir=output_dir,
             limit=limit,
             skip_existing=skip_existing,
-            verbose=verbose
+            verbose=verbose,
         )
-        
+
         if success:
             success_count += 1
         else:
-            typer.echo(f"❌ {provider_name} 备份失败")
-    
-    typer.echo(f"\n备份完成: {success_count}/{len(enabled_providers)} 个提供商备份成功")
-    
+            typer.echo(f"❌ {provider_name} backup failed")
+
+    typer.echo(
+        f"\nBackup completed: {success_count}/{len(enabled_providers)} providers backed up successfully"
+    )
+
     if success_count < len(enabled_providers):
         raise typer.Exit(code=1)
 

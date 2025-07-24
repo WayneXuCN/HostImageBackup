@@ -1,8 +1,3 @@
-"""SM.MS图床提供商
-
-This module provides the implementation for SM.MS image hosting.
-"""
-
 import requests
 from typing import Iterator, Optional
 from pathlib import Path
@@ -15,7 +10,7 @@ from ..config import SMSConfig
 
 
 class SMSProvider(BaseProvider):
-    """SM.MS图床提供商"""
+    """SM.MS Provider"""
     
     def __init__(self, config: SMSConfig):
         super().__init__(config)
@@ -24,7 +19,7 @@ class SMSProvider(BaseProvider):
         self.api_base = "https://sm.ms/api/v2"
     
     def test_connection(self) -> bool:
-        """测试SM.MS连接
+        """Test SM.MS connection
         
         Returns
         -------
@@ -40,11 +35,11 @@ class SMSProvider(BaseProvider):
             )
             return response.status_code == 200
         except Exception as e:
-            self.logger.error(f"SM.MS连接测试失败: {e}")
+            self.logger.error(f"SM.MS connection test failed: {e}")
             return False
     
     def list_images(self, limit: Optional[int] = None) -> Iterator[ImageInfo]:
-        """列出SM.MS中的所有图片
+        """List all images in SM.MS
         
         Parameters
         ----------
@@ -60,7 +55,7 @@ class SMSProvider(BaseProvider):
             headers = {'Authorization': self.config.api_token}
             count = 0
             
-            # SM.MS API限制，每次最多返回100张图片
+            # SM.MS API limit, maximum 100 images returned per request
             page = 0
             per_page = 100
             
@@ -79,7 +74,7 @@ class SMSProvider(BaseProvider):
                 )
                 
                 if response.status_code != 200:
-                    self.logger.error(f"获取SM.MS图片列表失败: {response.status_code}")
+                    self.logger.error(f"Failed to get SM.MS image list: {response.status_code}")
                     break
                 
                 data = response.json()
@@ -108,21 +103,21 @@ class SMSProvider(BaseProvider):
                     )
                     count += 1
                 
-                # 如果返回的图片数量少于请求数量，说明没有更多图片了
+                # If the number of returned images is less than the requested number, there are no more images
                 if len(images) < per_page:
                     break
                 
                 page += 1
                 
-                # 避免频繁请求，添加延迟
+                # Add delay to avoid rate limiting
                 time.sleep(0.1)
                 
         except Exception as e:
-            self.logger.error(f"列出SM.MS图片失败: {e}")
+            self.logger.error(f"Failed to list SM.MS images: {e}")
             raise
     
     def download_image(self, image_info: ImageInfo, output_path: Path) -> bool:
-        """从SM.MS下载图片
+        """Download image from SM.MS
         
         Parameters
         ----------
@@ -137,7 +132,7 @@ class SMSProvider(BaseProvider):
             True if download is successful, False otherwise.
         """
         try:
-            # 确保输出目录存在
+            # Ensure output directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
             
             response = requests.get(
@@ -151,15 +146,15 @@ class SMSProvider(BaseProvider):
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
             
-            self.logger.debug(f"成功下载图片: {image_info.filename}")
+            self.logger.debug(f"Successfully downloaded image: {image_info.filename}")
             return True
             
         except Exception as e:
-            self.logger.error(f"下载图片失败 {image_info.filename}: {e}")
+            self.logger.error(f"Failed to download image {image_info.filename}: {e}")
             return False
     
     def get_image_count(self) -> Optional[int]:
-        """获取SM.MS中的图片总数
+        """Get the total number of images in SM.MS
         
         Returns
         -------
@@ -182,5 +177,5 @@ class SMSProvider(BaseProvider):
             
             return None
         except Exception as e:
-            self.logger.warning(f"获取SM.MS图片总数失败: {e}")
+            self.logger.warning(f"Failed to get SM.MS image total count: {e}")
             return None

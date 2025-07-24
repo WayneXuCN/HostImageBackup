@@ -1,1 +1,1 @@
-"""测试初始化模块"""
+"""Test initialization module"""

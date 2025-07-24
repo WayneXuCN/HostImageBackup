@@ -1,9 +1,3 @@
-"""备份服务模块
-
-This module provides the main backup service that orchestrates the backup
-process for different image hosting providers.
-"""
-
 import concurrent.futures
 from pathlib import Path
 from typing import Optional, List
@@ -24,14 +18,14 @@ from .providers.github import GitHubProvider
 
 
 class BackupService:
-    """备份服务"""
+    """Backup service"""
     
     def __init__(self, config: AppConfig):
         self.config = config
         self.console = Console()
         self.logger = logger
         
-        # 初始化提供商映射
+        # Initialize provider mapping
         self.provider_classes = {
             'oss': OSSProvider,
             'cos': COSProvider,
@@ -41,34 +35,34 @@ class BackupService:
         }
     
     def get_provider(self, provider_name: str) -> Optional[BaseProvider]:
-        """获取提供商实例"""
+        """Get provider instance"""
         if provider_name not in self.config.providers:
-            self.logger.error(f"未找到提供商配置: {provider_name}")
+            self.logger.error(f"Provider configuration not found: {provider_name}")
             return None
         
         provider_config = self.config.providers[provider_name]
         
         if not provider_config.enabled:
-            self.logger.error(f"提供商未启用: {provider_name}")
+            self.logger.error(f"Provider not enabled: {provider_name}")
             return None
         
         if not provider_config.validate_config():
-            self.logger.error(f"提供商配置无效: {provider_name}")
+            self.logger.error(f"Invalid provider configuration: {provider_name}")
             return None
         
         provider_class = self.provider_classes.get(provider_name)
         if not provider_class:
-            self.logger.error(f"未找到提供商实现: {provider_name}")
+            self.logger.error(f"Provider implementation not found: {provider_name}")
             return None
         
         return provider_class(provider_config)
     
     def list_providers(self) -> List[str]:
-        """列出所有可用的提供商"""
+        """List all available providers"""
         return list(self.provider_classes.keys())
     
     def test_provider(self, provider_name: str) -> bool:
-        """测试提供商连接"""
+        """Test provider connection"""
         provider = self.get_provider(provider_name)
         if not provider:
             return False
@@ -76,12 +70,12 @@ class BackupService:
         try:
             result = provider.test_connection()
             if result:
-                self.console.print(f"✅ {provider_name} 连接测试成功", style="green")
+                self.console.print(f"✅ {provider_name} connection test successful", style="green")
             else:
-                self.console.print(f"❌ {provider_name} 连接测试失败", style="red")
+                self.console.print(f"❌ {provider_name} connection test failed", style="red")
             return result
         except Exception as e:
-            self.console.print(f"❌ {provider_name} 连接测试异常: {e}", style="red")
+            self.console.print(f"❌ {provider_name} connection test exception: {e}", style="red")
             return False
     
     def backup_images(
@@ -92,27 +86,27 @@ class BackupService:
         skip_existing: bool = True,
         verbose: bool = False
     ) -> bool:
-        """备份图片"""
+        """Backup images"""
         provider = self.get_provider(provider_name)
         if not provider:
             return False
         
         try:
-            # 创建输出目录
+            # Create output directory
             output_dir = Path(output_dir)
             provider_dir = output_dir / provider_name
             provider_dir.mkdir(parents=True, exist_ok=True)
             
-            # 获取图片总数（用于进度条）
+            # Get total number of images (for progress bar)
             total_count = provider.get_image_count()
             if limit and total_count:
                 total_count = min(total_count, limit)
             
-            # 初始化进度条
+            # Initialize progress bar
             progress_bar = tqdm(
                 total=total_count,
-                desc=f"备份 {provider_name}",
-                unit="张",
+                desc=f"Backing up {provider_name}",
+                unit="image",
                 leave=True
             )
             
@@ -120,7 +114,7 @@ class BackupService:
             error_count = 0
             skip_count = 0
             
-            # 创建线程池执行器
+            # Create thread pool executor
             with concurrent.futures.ThreadPoolExecutor(
                 max_workers=self.config.max_concurrent_downloads
             ) as executor:
@@ -128,18 +122,18 @@ class BackupService:
                 futures = []
                 
                 for image_info in provider.list_images(limit=limit):
-                    # 构建输出文件路径
+                    # Build output file path
                     output_file = provider_dir / self._sanitize_filename(image_info.filename)
                     
-                    # 如果文件已存在且设置了跳过，则跳过
+                    # Skip if file exists and skip_existing is True
                     if skip_existing and output_file.exists():
                         skip_count += 1
                         progress_bar.update(1)
                         if verbose:
-                            self.console.print(f"跳过已存在文件: {image_info.filename}", style="yellow")
+                            self.console.print(f"Skipping existing file: {image_info.filename}", style="yellow")
                         continue
                     
-                    # 提交下载任务
+                    # Submit download task
                     future = executor.submit(
                         self._download_image_with_retry,
                         provider,
@@ -149,7 +143,7 @@ class BackupService:
                     )
                     futures.append(future)
                 
-                # 等待所有下载任务完成
+                # Wait for all downloads to complete
                 for future in concurrent.futures.as_completed(futures):
                     try:
                         result = future.result()
@@ -160,19 +154,19 @@ class BackupService:
                     except Exception as e:
                         error_count += 1
                         if verbose:
-                            self.logger.error(f"下载任务异常: {e}")
+                            self.logger.error(f"Download task error: {e}")
                     
                     progress_bar.update(1)
             
             progress_bar.close()
             
-            # 显示备份结果
+            # Show backup summary
             self._show_backup_summary(provider_name, success_count, error_count, skip_count)
             
             return error_count == 0
             
         except Exception as e:
-            self.logger.error(f"备份过程异常: {e}")
+            self.logger.error(f"Backup process error: {e}")
             return False
     
     def _download_image_with_retry(
@@ -182,31 +176,31 @@ class BackupService:
         output_file: Path,
         verbose: bool
     ) -> bool:
-        """带重试的下载图片"""
+        """Download image with retry"""
         for attempt in range(self.config.retry_count):
             try:
                 result = provider.download_image(image_info, output_file)
                 if result:
                     if verbose:
-                        self.console.print(f"✅ 下载成功: {image_info.filename}", style="green")
+                        self.console.print(f"✅ Download successful: {image_info.filename}", style="green")
                     return True
                 else:
                     if verbose:
-                        self.console.print(f"❌ 下载失败: {image_info.filename} (尝试 {attempt + 1}/{self.config.retry_count})", style="red")
+                        self.console.print(f"❌ Download failed: {image_info.filename} (attempt {attempt + 1}/{self.config.retry_count})", style="red")
             except Exception as e:
                 if verbose:
-                    self.console.print(f"❌ 下载异常: {image_info.filename} (尝试 {attempt + 1}/{self.config.retry_count}): {e}", style="red")
+                    self.console.print(f"❌ Download exception: {image_info.filename} (attempt {attempt + 1}/{self.config.retry_count}): {e}", style="red")
         
         return False
     
     def _sanitize_filename(self, filename: str) -> str:
-        """清理文件名中的非法字符"""
-        # 替换非法字符
+        """Sanitize filename by removing illegal characters"""
+        # Replace illegal characters
         illegal_chars = '<>:"/\\|?*'
         for char in illegal_chars:
             filename = filename.replace(char, '_')
         
-        # 限制文件名长度
+        # Limit filename length
         if len(filename) > 255:
             name, ext = Path(filename).stem, Path(filename).suffix
             filename = name[:255-len(ext)] + ext
@@ -214,53 +208,53 @@ class BackupService:
         return filename
     
     def _show_backup_summary(self, provider_name: str, success: int, error: int, skip: int) -> None:
-        """显示备份摘要"""
-        table = Table(title=f"{provider_name} 备份结果")
+        """Show backup summary"""
+        table = Table(title=f"{provider_name} Backup Summary")
         
-        table.add_column("项目", style="cyan", no_wrap=True)
-        table.add_column("数量", style="magenta")
+        table.add_column("Item", style="cyan", no_wrap=True)
+        table.add_column("Count", style="magenta")
         
-        table.add_row("成功下载", str(success))
-        table.add_row("下载失败", str(error))
-        table.add_row("跳过文件", str(skip))
-        table.add_row("总计", str(success + error + skip))
+        table.add_row("Successfully Downloaded", str(success))
+        table.add_row("Failed Downloads", str(error))
+        table.add_row("Skipped Files", str(skip))
+        table.add_row("Total", str(success + error + skip))
         
         self.console.print(table)
         
         if error > 0:
             self.console.print(
                 Panel(
-                    f"有 {error} 个文件下载失败，请检查网络连接或提供商配置",
-                    title="警告",
+                    f"There are {error} failed downloads, please check network connection or provider configuration",
+                    title="Warning",
                     style="yellow"
                 )
             )
     
     def show_provider_info(self, provider_name: str) -> None:
-        """显示提供商信息"""
+        """Show provider information"""
         provider = self.get_provider(provider_name)
         if not provider:
-            self.console.print(f"❌ 无法获取提供商: {provider_name}", style="red")
+            self.console.print(f"❌ Cannot get provider: {provider_name}", style="red")
             return
         
-        # 测试连接
-        connection_status = "✅ 正常" if provider.test_connection() else "❌ 失败"
+        # Test connection
+        connection_status = "✅ Normal" if provider.test_connection() else "❌ Failed"
         
-        # 获取图片数量
+        # Get image count
         try:
             image_count = provider.get_image_count()
-            count_text = str(image_count) if image_count is not None else "无法获取"
+            count_text = str(image_count) if image_count is not None else "Not available"
         except Exception:
-            count_text = "获取失败"
+            count_text = "Failed to get"
         
-        table = Table(title=f"{provider_name.upper()} 提供商信息")
-        table.add_column("属性", style="cyan")
-        table.add_column("值", style="magenta")
+        table = Table(title=f"{provider_name.upper()} Provider Information")
+        table.add_column("Property", style="cyan")
+        table.add_column("Value", style="magenta")
         
-        table.add_row("名称", provider_name.upper())
-        table.add_row("状态", "启用" if provider.is_enabled() else "禁用")
-        table.add_row("连接测试", connection_status)
-        table.add_row("图片数量", count_text)
-        table.add_row("配置有效", "是" if provider.validate_config() else "否")
+        table.add_row("Name", provider_name.upper())
+        table.add_row("Status", "Enabled" if provider.is_enabled() else "Disabled")
+        table.add_row("Connection Test", connection_status)
+        table.add_row("Image Count", count_text)
+        table.add_row("Configuration Valid", "Yes" if provider.validate_config() else "No")
         
         self.console.print(table)

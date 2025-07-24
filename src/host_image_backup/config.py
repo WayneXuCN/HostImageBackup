@@ -1,9 +1,3 @@
-"""Configuration management module.
-
-This module provides configuration classes for managing different image hosting 
-providers and application settings using Pydantic for validation.
-"""
-
 import yaml
 from pathlib import Path
 from typing import Dict, Optional, Any
