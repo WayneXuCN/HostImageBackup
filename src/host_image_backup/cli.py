@@ -51,7 +51,7 @@ def main(
         help="Configuration file path [default: ~/.config/host-image-backup/config.yaml]"
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed logs"),
-    ctx: typer.Context = typer.Option(...),
+    ctx: typer.Context = typer.Option(None),  # type: ignore
 ) -> None:
     setup_logging(verbose)
 
@@ -115,7 +115,7 @@ def backup(
         None, "--limit", "-l", help="Limit download count"
     ),
     skip_existing: bool = typer.Option(
-        True, "--skip-existing/--no-skip-existing", help="Skip existing files"
+        True, "--skip-existing/--no-skip-existing", help="Skip existing files [default: skip-existing]"
     ),
 ) -> None:
     """Backup images from the specified provider"""
@@ -229,7 +229,7 @@ def backup_all(
         None, "--limit", "-l", help="Each provider's limit download count"
     ),
     skip_existing: bool = typer.Option(
-        True, "--skip-existing/--no-skip-existing", help="Skip existing files"
+        True, "--skip-existing/--no-skip-existing", help="Skip existing files [default: skip-existing]"
     ),
 ) -> None:
     """Backup images from all enabled providers"""

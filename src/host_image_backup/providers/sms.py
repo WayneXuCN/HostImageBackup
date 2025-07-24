@@ -27,7 +27,7 @@ class SMSProvider(BaseProvider):
             True if connection is successful, False otherwise.
         """
         try:
-            headers = {"Authorization": self.config.api_token}
+            headers = {"Authorization": self.config.token}
             response = requests.get(
                 f"{self.api_base}/profile",
                 headers=headers,
@@ -52,24 +52,19 @@ class SMSProvider(BaseProvider):
             Information about each image.
         """
         try:
-            headers = {"Authorization": self.config.api_token}
+            headers = {"Authorization": self.config.token}
             count = 0
-
-            # SM.MS API limit, maximum 100 images returned per request
-            page = 0
-            per_page = 100
+            page = 1
 
             while True:
                 if limit and count >= limit:
                     break
 
+                # Get user's images
                 response = requests.get(
                     f"{self.api_base}/upload_history",
                     headers=headers,
-                    params={
-                        "page": page,
-                        "format": "json"
-                    },
+                    params={"page": page},
                     timeout=30
                 )
 
@@ -80,9 +75,10 @@ class SMSProvider(BaseProvider):
                 data = response.json()
 
                 if not data.get("success") or not data.get("data"):
+                    self.logger.warning("SM.MS API returned no data or unsuccessful response")
                     break
 
-                images = data["data"]
+                images = data["data"].get("data", [])
                 if not images:
                     break
 
@@ -90,26 +86,44 @@ class SMSProvider(BaseProvider):
                     if limit and count >= limit:
                         break
 
+                    # Validate image data
+                    if not img or not isinstance(img, dict):
+                        continue
+
+                    # Get URL - required field
+                    url = img.get("url")
+                    if not url:
+                        continue
+
+                    # Get filename (from storename or extract from link)
+                    filename = img.get("storename") or Path(url).name
+
                     yield ImageInfo(
-                        url=img["url"],
-                        filename=img["filename"],
+                        url=url,
+                        filename=filename,
                         size=img.get("size"),
-                        created_at=img.get("created_at"),
+                        created_at=img.get("created_at"),  # Already in ISO format
                         metadata={
                             "hash": img.get("hash"),
-                            "delete_url": img.get("delete"),
-                            "page_url": img.get("page")
+                            "delete": img.get("delete"),
+                            "page": img.get("page"),
+                            "path": img.get("path"),
+                            "width": img.get("width"),
+                            "height": img.get("height")
                         }
                     )
                     count += 1
 
-                # If the number of returned images is less than the requested number, there are no more images
-                if len(images) < per_page:
+                # Check if there are more pages
+                current_page = data["data"].get("current_page", 1)
+                total_pages = data["data"].get("total_page", 1)
+                
+                if current_page >= total_pages:
                     break
-
+                    
                 page += 1
 
-                # Add delay to avoid rate limiting
+                # Add delay to avoid frequent requests
                 time.sleep(0.1)
 
         except Exception as e:
@@ -132,7 +146,7 @@ class SMSProvider(BaseProvider):
             True if download is successful, False otherwise.
         """
         try:
-            # Ensure output directory exists
+            # Ensure the output directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             response = requests.get(
@@ -162,7 +176,7 @@ class SMSProvider(BaseProvider):
             The total number of images, or None if unable to determine.
         """
         try:
-            headers = {"Authorization": self.config.api_token}
+            headers = {"Authorization": self.config.token}
             response = requests.get(
                 f"{self.api_base}/profile",
                 headers=headers,
@@ -172,10 +186,10 @@ class SMSProvider(BaseProvider):
             if response.status_code == 200:
                 data = response.json()
                 if data.get("success"):
-                    profile = data.get("data", {})
-                    return profile.get("disk_usage_raw", {}).get("upload_count")
+                    profile_data = data.get("data", {})
+                    return profile_data.get("disk_usage", {}).get("image_count", 0)
 
             return None
         except Exception as e:
-            self.logger.warning(f"Failed to get SM.MS image total count: {e}")
+            self.logger.warning(f"Failed to get the total number of SM.MS images: {e}")
             return None

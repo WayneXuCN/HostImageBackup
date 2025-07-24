@@ -65,12 +65,17 @@ class GitHubProvider(BaseProvider):
         count = 0
         image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg"}
 
-        # Recursively get directory contents
-        def get_files(path: str = ""):
-            nonlocal count
+        # Use iterative approach instead of recursion to avoid potential stack overflow
+        paths_to_process = [self.config.path.rstrip("/") if self.config.path else ""]
+        processed_paths = set()
 
-            if limit and count >= limit:
-                return
+        while paths_to_process and (limit is None or count < limit):
+            path = paths_to_process.pop(0)
+            
+            # Avoid processing the same path multiple times
+            if path in processed_paths:
+                continue
+            processed_paths.add(path)
 
             url = f"{self.api_base}/repos/{self.config.owner}/{self.config.repo}/contents"
             if path:
@@ -81,12 +86,12 @@ class GitHubProvider(BaseProvider):
 
                 if response.status_code != 200:
                     self.logger.warning(f"Unable to get GitHub directory contents: {path}, Status code: {response.status_code}")
-                    return
+                    continue
 
                 contents = response.json()
 
                 for item in contents:
-                    if limit and count >= limit:
+                    if limit is not None and count >= limit:
                         break
 
                     if item["type"] == "file":
@@ -114,10 +119,106 @@ class GitHubProvider(BaseProvider):
                             count += 1
 
                     elif item["type"] == "dir":
-                        # Recursively process subdirectories
-                        get_files(item["path"])
+                        # Add subdirectory to processing queue
+                        paths_to_process.append(item["path"])
 
             except Exception as e:
                 self.logger.error(f"Error listing GitHub files: {e}")
 
-        get_files(self.config.path.rstrip("/") if self.config.path else "")
+    def download_image(self, image_info: ImageInfo, output_path: Path) -> bool:
+        """Download image from GitHub
+        
+        Parameters
+        ----------
+        image_info : ImageInfo
+            Information about the image to download.
+        output_path : Path
+            The path where the image should be saved.
+            
+        Returns
+        -------
+        bool
+            True if download is successful, False otherwise.
+        """
+        try:
+            # Ensure output directory exists
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Get download URL from metadata or construct it
+            url = image_info.url
+            
+            # Download the image
+            response = requests.get(url, timeout=30, stream=True)
+            response.raise_for_status()
+
+            with open(output_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+            self.logger.debug(f"Successfully downloaded image: {image_info.filename}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to download image {image_info.filename}: {e}")
+            return False
+
+    def get_image_count(self) -> int | None:
+        """Get total number of images in GitHub repository
+        
+        Returns
+        -------
+        int or None
+            The total number of images, or None if unable to determine.
+        """
+        try:
+            count = 0
+            image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg"}
+            
+            # Use iterative approach for counting as well
+            paths_to_process = [self.config.path.rstrip("/") if self.config.path else ""]
+            processed_paths = set()
+
+            while paths_to_process:
+                path = paths_to_process.pop(0)
+                
+                # Avoid processing the same path multiple times
+                if path in processed_paths:
+                    continue
+                processed_paths.add(path)
+
+                headers = {
+                    "Authorization": f"token {self.config.token}",
+                    "Accept": "application/vnd.github.v3+json"
+                }
+
+                url = f"{self.api_base}/repos/{self.config.owner}/{self.config.repo}/contents"
+                if path:
+                    url += f"/{path}"
+
+                response = requests.get(url, headers=headers, timeout=30)
+
+                if response.status_code != 200:
+                    self.logger.warning(f"Unable to get GitHub directory contents for counting: {path}")
+                    continue
+
+                contents = response.json()
+
+                for item in contents:
+                    if item["type"] == "file":
+                        file_path = item["path"]
+                        file_ext = Path(file_path).suffix.lower()
+
+                        # Check if path matches configured path prefix
+                        if self.config.path and not file_path.startswith(self.config.path):
+                            continue
+
+                        if file_ext in image_extensions:
+                            count += 1
+                    elif item["type"] == "dir":
+                        # Add subdirectory to processing queue
+                        paths_to_process.append(item["path"])
+
+            return count
+        except Exception as e:
+            self.logger.warning(f"Failed to get total number of GitHub images: {e}")
+            return None

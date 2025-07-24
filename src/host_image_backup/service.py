@@ -113,6 +113,10 @@ class BackupService:
             total_count = provider.get_image_count()
             if limit and total_count:
                 total_count = min(total_count, limit)
+                
+            # If we couldn't get the count, set it to None to show an indefinite progress bar
+            if total_count == 0:
+                total_count = None
 
             success_count = 0
             error_count = 0
@@ -124,10 +128,13 @@ class BackupService:
                 TextColumn("[progress.description]{task.description}"),
                 BarColumn(),
                 TaskProgressColumn(),
-                TextColumn("[progress.percentage]{task.completed}/{task.total} images"),
+                TextColumn("[progress.percentage]{task.completed}" + 
+                          ("{task.total}" if total_count else "/{task.completed}") + " images"),
             ) as progress:
+                # If we don't know the total, use an indefinite progress bar
                 backup_task = progress.add_task(
-                    f"[cyan]Backing up {provider_name}[/cyan]", total=total_count
+                    f"[cyan]Backing up {provider_name}[/cyan]", 
+                    total=total_count if total_count else None
                 )
 
                 # Create thread pool executor
@@ -199,7 +206,7 @@ class BackupService:
         verbose: bool,
     ) -> bool:
         """Download image with retry"""
-        for attempt in range(self.config.retry_count):
+        for attempt in range(self.config.retry_count + 1):  # +1 for initial attempt
             try:
                 result = provider.download_image(image_info, output_file)
                 if result:
@@ -211,12 +218,12 @@ class BackupService:
                 else:
                     if verbose:
                         self.console.print(
-                            f"[red]Download failed: {image_info.filename} (attempt {attempt + 1}/{self.config.retry_count})[/red]"
+                            f"[red]Download failed: {image_info.filename} (attempt {attempt + 1}/{self.config.retry_count + 1})[/red]"
                         )
             except Exception as e:
                 if verbose:
                     self.console.print(
-                        f"[red]Download exception: {image_info.filename} (attempt {attempt + 1}/{self.config.retry_count}): {e}[/red]"
+                        f"[red]Download exception: {image_info.filename} (attempt {attempt + 1}/{self.config.retry_count + 1}): {e}[/red]"
                     )
 
         return False
@@ -231,7 +238,13 @@ class BackupService:
         # Limit filename length
         if len(filename) > 255:
             name, ext = Path(filename).stem, Path(filename).suffix
-            filename = name[: 255 - len(ext)] + ext
+            # Ensure we preserve the extension
+            max_name_length = 255 - len(ext)
+            if max_name_length > 0:
+                filename = name[:max_name_length] + ext
+            else:
+                # If extension is longer than 255 chars, we have bigger problems
+                filename = name[:255]
 
         return filename
 
@@ -287,7 +300,8 @@ class BackupService:
             count_text = (
                 str(image_count) if image_count is not None else "Not available"
             )
-        except Exception:
+        except Exception as e:
+            self.logger.error(f"Error getting image count for {provider_name}: {e}")
             count_text = "Failed to get"
 
         table = Table(

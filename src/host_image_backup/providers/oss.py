@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from pathlib import Path
+from datetime import datetime
 
 import oss2
 from loguru import logger
@@ -85,8 +86,13 @@ class OSSProvider(BaseProvider):
                         created_at = obj.last_modified.isoformat()
                     elif isinstance(obj.last_modified, (int, float)):
                         # It's a timestamp, convert it to ISO format
-                        from datetime import datetime
                         created_at = datetime.fromtimestamp(obj.last_modified).isoformat()
+                    else:
+                        # Try to convert string representation to datetime
+                        try:
+                            created_at = str(obj.last_modified)
+                        except Exception:
+                            pass
 
                 yield ImageInfo(
                     url=url,

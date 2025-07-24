@@ -120,7 +120,9 @@ class COSProvider(BaseProvider):
                     count += 1
 
                 # Check if there are more objects
-                if response.get("IsTruncated") == "false":
+                # Fix the pagination logic - IsTruncated can be a boolean or string
+                is_truncated = response.get("IsTruncated")
+                if not is_truncated or is_truncated in (False, "false", "False"):
                     break
 
                 marker = response.get("NextMarker", "")
@@ -214,7 +216,9 @@ class COSProvider(BaseProvider):
                     if file_ext in image_extensions:
                         count += 1
 
-                if response.get("IsTruncated") == "false":
+                # Fix the pagination logic - IsTruncated can be a boolean or string
+                is_truncated = response.get("IsTruncated")
+                if not is_truncated or is_truncated in (False, "false", "False"):
                     break
 
                 marker = response.get("NextMarker", "")

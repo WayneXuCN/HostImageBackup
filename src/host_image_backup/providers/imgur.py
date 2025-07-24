@@ -74,6 +74,7 @@ class ImgurProvider(BaseProvider):
                 data = response.json()
 
                 if not data.get("success") or not data.get("data"):
+                    self.logger.warning("Imgur API returned no data or unsuccessful response")
                     break
 
                 images = data["data"]
@@ -84,18 +85,33 @@ class ImgurProvider(BaseProvider):
                     if limit and count >= limit:
                         break
 
+                    # Validate image data
+                    if not img or not isinstance(img, dict):
+                        continue
+
+                    # Get URL - required field
+                    url = img.get("link")
+                    if not url:
+                        continue
+
                     # Get filename (from title or extract from link)
-                    filename = img.get("title") or Path(img["link"]).name
+                    filename = img.get("title") or Path(url).name
                     if not filename.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
-                        filename += f".{img.get('type', 'jpg').split('/')[-1]}"
+                        # Try to get file extension from URL
+                        url_filename = Path(url).name
+                        if url_filename.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
+                            filename = url_filename
+                        else:
+                            # Default to jpg if we can't determine extension
+                            filename += ".jpg"
 
                     yield ImageInfo(
-                        url=img["link"],
+                        url=url,
                         filename=filename,
                         size=img.get("size"),
                         created_at=img.get("datetime"),
                         metadata={
-                            "id": img["id"],
+                            "id": img.get("id"),
                             "title": img.get("title"),
                             "description": img.get("description"),
                             "type": img.get("type"),
