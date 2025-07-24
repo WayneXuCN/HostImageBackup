@@ -1,4 +1,4 @@
-from typing import Optional, Any
+from typing import Any
 
 
 class HostImageBackupError(Exception):
@@ -17,18 +17,18 @@ class HostImageBackupError(Exception):
     --------
     >>> raise HostImageBackupError("Something went wrong")
     """
-    
+
     def __init__(
-        self, 
-        message: str, 
-        code: Optional[str] = None, 
-        details: Optional[Any] = None
+        self,
+        message: str,
+        code: str | None = None,
+        details: Any | None = None
     ) -> None:
         super().__init__(message)
         self.message = message
         self.code = code
         self.details = details
-    
+
     def __str__(self) -> str:
         """Return string representation of the error."""
         if self.code:
@@ -104,12 +104,12 @@ class ProviderAPIError(ProviderError):
     --------
     >>> raise ProviderAPIError("API rate limit exceeded", status_code=429)
     """
-    
+
     def __init__(
         self,
         message: str,
-        status_code: Optional[int] = None,
-        response_data: Optional[Any] = None,
+        status_code: int | None = None,
+        response_data: Any | None = None,
         **kwargs
     ) -> None:
         super().__init__(message, **kwargs)
@@ -136,12 +136,12 @@ class DownloadError(HostImageBackupError):
     --------
     >>> raise DownloadError("Download failed", url="https://example.com/image.jpg")
     """
-    
+
     def __init__(
         self,
         message: str,
-        url: Optional[str] = None,
-        filename: Optional[str] = None,
+        url: str | None = None,
+        filename: str | None = None,
         **kwargs
     ) -> None:
         super().__init__(message, **kwargs)
@@ -193,11 +193,11 @@ class RetryableError(HostImageBackupError):
     --------
     >>> raise RetryableError("Temporary service unavailable", retry_after=60)
     """
-    
+
     def __init__(
         self,
         message: str,
-        retry_after: Optional[int] = None,
+        retry_after: int | None = None,
         **kwargs
     ) -> None:
         super().__init__(message, **kwargs)

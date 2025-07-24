@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from loguru import logger
 
@@ -28,10 +29,10 @@ class ImageInfo:
 
     url: str
     filename: str
-    size: Optional[int] = None
-    created_at: Optional[str] = None
-    tags: Optional[List[str]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    size: int | None = None
+    created_at: str | None = None
+    tags: list[str] | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class BaseProvider(ABC):
@@ -63,7 +64,7 @@ class BaseProvider(ABC):
         pass
 
     @abstractmethod
-    def list_images(self, limit: Optional[int] = None) -> Iterator[ImageInfo]:
+    def list_images(self, limit: int | None = None) -> Iterator[ImageInfo]:
         """List all images
 
         Parameters
@@ -96,7 +97,7 @@ class BaseProvider(ABC):
         """
         pass
 
-    def get_image_count(self) -> Optional[int]:
+    def get_image_count(self) -> int | None:
         """Get total number of images
 
         Returns

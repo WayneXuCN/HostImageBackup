@@ -1,12 +1,12 @@
-from qcloud_cos import CosConfig, CosS3Client
-from typing import Iterator, Optional
+from collections.abc import Iterator
 from pathlib import Path
+
 import requests
-
 from loguru import logger
+from qcloud_cos import CosConfig, CosS3Client
 
-from .base import BaseProvider, ImageInfo
 from ..config import COSConfig
+from .base import BaseProvider, ImageInfo
 
 
 class COSProvider(BaseProvider):
@@ -52,7 +52,7 @@ class COSProvider(BaseProvider):
             self.logger.error(f"COS connection test failed: {e}")
             return False
 
-    def list_images(self, limit: Optional[int] = None) -> Iterator[ImageInfo]:
+    def list_images(self, limit: int | None = None) -> Iterator[ImageInfo]:
         """List all images in COS
 
         Parameters
@@ -176,7 +176,7 @@ class COSProvider(BaseProvider):
             self.logger.error(f"Failed to download image {image_info.filename}: {e}")
             return False
 
-    def get_image_count(self) -> Optional[int]:
+    def get_image_count(self) -> int | None:
         """Get total number of images in COS
 
         Returns
