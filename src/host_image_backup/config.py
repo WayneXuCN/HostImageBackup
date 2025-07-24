@@ -291,9 +291,7 @@ class AppConfig(BaseModel):
         default=8192, ge=1024, description="Download chunk size in bytes"
     )
     log_level: str = Field(default="INFO", description="Logging level")
-    providers: dict = Field(
-        default_factory=dict, description="Provider configurations"
-    )
+    providers: dict = Field(default_factory=dict, description="Provider configurations")
 
     @field_validator("log_level", mode="before")
     @classmethod

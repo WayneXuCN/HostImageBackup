@@ -20,7 +20,7 @@ class SMSProvider(BaseProvider):
 
     def test_connection(self) -> bool:
         """Test SM.MS connection
-        
+
         Returns
         -------
         bool
@@ -29,9 +29,7 @@ class SMSProvider(BaseProvider):
         try:
             headers = {"Authorization": self.config.token}
             response = requests.get(
-                f"{self.api_base}/profile",
-                headers=headers,
-                timeout=10
+                f"{self.api_base}/profile", headers=headers, timeout=10
             )
             return response.status_code == 200
         except Exception as e:
@@ -40,12 +38,12 @@ class SMSProvider(BaseProvider):
 
     def list_images(self, limit: int | None = None) -> Iterator[ImageInfo]:
         """List all images in SM.MS
-        
+
         Parameters
         ----------
         limit : int, optional
             Limit the number of images returned. If None, no limit is applied.
-            
+
         Yields
         ------
         ImageInfo
@@ -65,17 +63,21 @@ class SMSProvider(BaseProvider):
                     f"{self.api_base}/upload_history",
                     headers=headers,
                     params={"page": page},
-                    timeout=30
+                    timeout=30,
                 )
 
                 if response.status_code != 200:
-                    self.logger.error(f"Failed to get SM.MS image list: {response.status_code}")
+                    self.logger.error(
+                        f"Failed to get SM.MS image list: {response.status_code}"
+                    )
                     break
 
                 data = response.json()
 
                 if not data.get("success") or not data.get("data"):
-                    self.logger.warning("SM.MS API returned no data or unsuccessful response")
+                    self.logger.warning(
+                        "SM.MS API returned no data or unsuccessful response"
+                    )
                     break
 
                 images = data["data"].get("data", [])
@@ -109,18 +111,18 @@ class SMSProvider(BaseProvider):
                             "page": img.get("page"),
                             "path": img.get("path"),
                             "width": img.get("width"),
-                            "height": img.get("height")
-                        }
+                            "height": img.get("height"),
+                        },
                     )
                     count += 1
 
                 # Check if there are more pages
                 current_page = data["data"].get("current_page", 1)
                 total_pages = data["data"].get("total_page", 1)
-                
+
                 if current_page >= total_pages:
                     break
-                    
+
                 page += 1
 
                 # Add delay to avoid frequent requests
@@ -132,14 +134,14 @@ class SMSProvider(BaseProvider):
 
     def download_image(self, image_info: ImageInfo, output_path: Path) -> bool:
         """Download image from SM.MS
-        
+
         Parameters
         ----------
         image_info : ImageInfo
             Information about the image to download.
         output_path : Path
             The path where the image should be saved.
-            
+
         Returns
         -------
         bool
@@ -149,11 +151,7 @@ class SMSProvider(BaseProvider):
             # Ensure the output directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            response = requests.get(
-                image_info.url,
-                timeout=30,
-                stream=True
-            )
+            response = requests.get(image_info.url, timeout=30, stream=True)
             response.raise_for_status()
 
             with open(output_path, "wb") as f:
@@ -169,7 +167,7 @@ class SMSProvider(BaseProvider):
 
     def get_image_count(self) -> int | None:
         """Get the total number of images in SM.MS
-        
+
         Returns
         -------
         int or None
@@ -178,9 +176,7 @@ class SMSProvider(BaseProvider):
         try:
             headers = {"Authorization": self.config.token}
             response = requests.get(
-                f"{self.api_base}/profile",
-                headers=headers,
-                timeout=10
+                f"{self.api_base}/profile", headers=headers, timeout=10
             )
 
             if response.status_code == 200:

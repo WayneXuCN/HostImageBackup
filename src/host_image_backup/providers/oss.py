@@ -1,6 +1,6 @@
 from collections.abc import Iterator
+from datetime import datetime, timezone
 from pathlib import Path
-from datetime import datetime
 
 import oss2
 from loguru import logger
@@ -21,7 +21,7 @@ class OSSProvider(BaseProvider):
     @property
     def bucket(self) -> oss2.Bucket:
         """Get OSS bucket instance
-        
+
         Returns
         -------
         oss2.Bucket
@@ -34,7 +34,7 @@ class OSSProvider(BaseProvider):
 
     def test_connection(self) -> bool:
         """Test OSS connection
-        
+
         Returns
         -------
         bool
@@ -50,12 +50,12 @@ class OSSProvider(BaseProvider):
 
     def list_images(self, limit: int | None = None) -> Iterator[ImageInfo]:
         """List all images in OSS
-        
+
         Parameters
         ----------
         limit : int, optional
             Limit the number of images returned. If None, no limit is applied.
-            
+
         Yields
         ------
         ImageInfo
@@ -64,7 +64,15 @@ class OSSProvider(BaseProvider):
         try:
             count = 0
             # Supported image extensions
-            image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg"}
+            image_extensions = {
+                ".jpg",
+                ".jpeg",
+                ".png",
+                ".gif",
+                ".bmp",
+                ".webp",
+                ".svg",
+            }
 
             for obj in oss2.ObjectIterator(self.bucket, prefix=self.config.prefix):
                 if limit and count >= limit:
@@ -81,18 +89,20 @@ class OSSProvider(BaseProvider):
                 # Handle last_modified - it might be a datetime object or an integer timestamp
                 created_at = None
                 if obj.last_modified:
-                    if hasattr(obj.last_modified, 'isoformat'):
+                    if hasattr(obj.last_modified, "isoformat"):
                         # It's a datetime object
-                        created_at = obj.last_modified.isoformat()
-                    elif isinstance(obj.last_modified, (int, float)):
+                        created_at = obj.last_modified.replace(tzinfo=timezone.utc).isoformat()
+                    elif isinstance(obj.last_modified, int | float):
                         # It's a timestamp, convert it to ISO format
-                        created_at = datetime.fromtimestamp(obj.last_modified).isoformat()
+                        created_at = datetime.fromtimestamp(
+                            obj.last_modified, tz=timezone.utc
+                        ).isoformat()
                     else:
                         # Try to convert string representation to datetime
-                        try:
+                        from contextlib import suppress
+
+                        with suppress(Exception):
                             created_at = str(obj.last_modified)
-                        except Exception:
-                            pass
 
                 yield ImageInfo(
                     url=url,
@@ -102,8 +112,8 @@ class OSSProvider(BaseProvider):
                     metadata={
                         "key": obj.key,
                         "etag": obj.etag,
-                        "storage_class": obj.storage_class
-                    }
+                        "storage_class": obj.storage_class,
+                    },
                 )
                 count += 1
 
@@ -113,14 +123,14 @@ class OSSProvider(BaseProvider):
 
     def download_image(self, image_info: ImageInfo, output_path: Path) -> bool:
         """Download image from OSS
-        
+
         Parameters
         ----------
         image_info : ImageInfo
             Information about the image to download.
         output_path : Path
             The path where the image should be saved.
-            
+
         Returns
         -------
         bool
@@ -141,7 +151,7 @@ class OSSProvider(BaseProvider):
 
     def get_image_count(self) -> int | None:
         """Get total number of images in OSS
-        
+
         Returns
         -------
         int or None
@@ -149,7 +159,15 @@ class OSSProvider(BaseProvider):
         """
         try:
             count = 0
-            image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg"}
+            image_extensions = {
+                ".jpg",
+                ".jpeg",
+                ".png",
+                ".gif",
+                ".bmp",
+                ".webp",
+                ".svg",
+            }
 
             for obj in oss2.ObjectIterator(self.bucket, prefix=self.config.prefix):
                 file_ext = Path(obj.key).suffix.lower()

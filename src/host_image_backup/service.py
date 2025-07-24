@@ -5,14 +5,13 @@ from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import (
+    BarColumn,
     Progress,
     SpinnerColumn,
-    TextColumn,
-    BarColumn,
     TaskProgressColumn,
+    TextColumn,
 )
 from rich.table import Table
-from rich.text import Text
 
 from .config import AppConfig
 from .providers import BaseProvider, ImageInfo
@@ -113,7 +112,7 @@ class BackupService:
             total_count = provider.get_image_count()
             if limit and total_count:
                 total_count = min(total_count, limit)
-                
+
             # If we couldn't get the count, set it to None to show an indefinite progress bar
             if total_count == 0:
                 total_count = None
@@ -128,13 +127,16 @@ class BackupService:
                 TextColumn("[progress.description]{task.description}"),
                 BarColumn(),
                 TaskProgressColumn(),
-                TextColumn("[progress.percentage]{task.completed}" + 
-                          ("{task.total}" if total_count else "/{task.completed}") + " images"),
+                TextColumn(
+                    "[progress.percentage]{task.completed}"
+                    + ("{task.total}" if total_count else "/{task.completed}")
+                    + " images"
+                ),
             ) as progress:
                 # If we don't know the total, use an indefinite progress bar
                 backup_task = progress.add_task(
-                    f"[cyan]Backing up {provider_name}[/cyan]", 
-                    total=total_count if total_count else None
+                    f"[cyan]Backing up {provider_name}[/cyan]",
+                    total=total_count if total_count else None,
                 )
 
                 # Create thread pool executor
@@ -185,9 +187,8 @@ class BackupService:
                         progress.update(backup_task, advance=1)
 
             # Add empty line between progress bar and summary table
-            self.console.print()
-            
-            # Show backup summary
+            self.console.print()  # Add empty line
+            self.console.print()  # Show backup summary
             self._show_backup_summary(
                 provider_name, success_count, error_count, skip_count
             )
@@ -266,7 +267,6 @@ class BackupService:
         table.add_row("Total", str(success + error + skip))
 
         self.console.print(table)
-
 
         if error > 0:
             self.console.print()  # Add empty line before warning

@@ -24,7 +24,7 @@ class GitHubProvider(BaseProvider):
 
     def test_connection(self) -> bool:
         """Test GitHub connection
-        
+
         Returns
         -------
         bool
@@ -33,12 +33,12 @@ class GitHubProvider(BaseProvider):
         try:
             headers = {
                 "Authorization": f"token {self.config.token}",
-                "Accept": "application/vnd.github.v3+json"
+                "Accept": "application/vnd.github.v3+json",
             }
             response = requests.get(
                 f"{self.api_base}/repos/{self.config.owner}/{self.config.repo}",
                 headers=headers,
-                timeout=10
+                timeout=10,
             )
             return response.status_code == 200
         except Exception as e:
@@ -47,12 +47,12 @@ class GitHubProvider(BaseProvider):
 
     def list_images(self, limit: int | None = None) -> Iterator[ImageInfo]:
         """List all images in GitHub repository
-        
+
         Parameters
         ----------
         limit : int, optional
             Limit the number of images returned. If None, no limit is applied.
-            
+
         Yields
         ------
         ImageInfo
@@ -60,7 +60,7 @@ class GitHubProvider(BaseProvider):
         """
         headers = {
             "Authorization": f"token {self.config.token}",
-            "Accept": "application/vnd.github.v3+json"
+            "Accept": "application/vnd.github.v3+json",
         }
         count = 0
         image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg"}
@@ -71,13 +71,15 @@ class GitHubProvider(BaseProvider):
 
         while paths_to_process and (limit is None or count < limit):
             path = paths_to_process.pop(0)
-            
+
             # Avoid processing the same path multiple times
             if path in processed_paths:
                 continue
             processed_paths.add(path)
 
-            url = f"{self.api_base}/repos/{self.config.owner}/{self.config.repo}/contents"
+            url = (
+                f"{self.api_base}/repos/{self.config.owner}/{self.config.repo}/contents"
+            )
             if path:
                 url += f"/{path}"
 
@@ -85,7 +87,9 @@ class GitHubProvider(BaseProvider):
                 response = requests.get(url, headers=headers, timeout=30)
 
                 if response.status_code != 200:
-                    self.logger.warning(f"Unable to get GitHub directory contents: {path}, Status code: {response.status_code}")
+                    self.logger.warning(
+                        f"Unable to get GitHub directory contents: {path}, Status code: {response.status_code}"
+                    )
                     continue
 
                 contents = response.json()
@@ -99,7 +103,9 @@ class GitHubProvider(BaseProvider):
                         file_ext = Path(file_path).suffix.lower()
 
                         # Check if path matches configured path prefix
-                        if self.config.path and not file_path.startswith(self.config.path):
+                        if self.config.path and not file_path.startswith(
+                            self.config.path
+                        ):
                             continue
 
                         if file_ext in image_extensions:
@@ -111,10 +117,7 @@ class GitHubProvider(BaseProvider):
                                 filename=Path(file_path).name,
                                 size=item.get("size"),
                                 created_at=None,  # GitHub API doesn't provide creation time
-                                metadata={
-                                    "sha": item.get("sha"),
-                                    "path": file_path
-                                }
+                                metadata={"sha": item.get("sha"), "path": file_path},
                             )
                             count += 1
 
@@ -127,14 +130,14 @@ class GitHubProvider(BaseProvider):
 
     def download_image(self, image_info: ImageInfo, output_path: Path) -> bool:
         """Download image from GitHub
-        
+
         Parameters
         ----------
         image_info : ImageInfo
             Information about the image to download.
         output_path : Path
             The path where the image should be saved.
-            
+
         Returns
         -------
         bool
@@ -146,7 +149,7 @@ class GitHubProvider(BaseProvider):
 
             # Get download URL from metadata or construct it
             url = image_info.url
-            
+
             # Download the image
             response = requests.get(url, timeout=30, stream=True)
             response.raise_for_status()
@@ -164,7 +167,7 @@ class GitHubProvider(BaseProvider):
 
     def get_image_count(self) -> int | None:
         """Get total number of images in GitHub repository
-        
+
         Returns
         -------
         int or None
@@ -172,15 +175,25 @@ class GitHubProvider(BaseProvider):
         """
         try:
             count = 0
-            image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg"}
-            
+            image_extensions = {
+                ".jpg",
+                ".jpeg",
+                ".png",
+                ".gif",
+                ".bmp",
+                ".webp",
+                ".svg",
+            }
+
             # Use iterative approach for counting as well
-            paths_to_process = [self.config.path.rstrip("/") if self.config.path else ""]
+            paths_to_process = [
+                self.config.path.rstrip("/") if self.config.path else ""
+            ]
             processed_paths = set()
 
             while paths_to_process:
                 path = paths_to_process.pop(0)
-                
+
                 # Avoid processing the same path multiple times
                 if path in processed_paths:
                     continue
@@ -188,7 +201,7 @@ class GitHubProvider(BaseProvider):
 
                 headers = {
                     "Authorization": f"token {self.config.token}",
-                    "Accept": "application/vnd.github.v3+json"
+                    "Accept": "application/vnd.github.v3+json",
                 }
 
                 url = f"{self.api_base}/repos/{self.config.owner}/{self.config.repo}/contents"
@@ -198,7 +211,9 @@ class GitHubProvider(BaseProvider):
                 response = requests.get(url, headers=headers, timeout=30)
 
                 if response.status_code != 200:
-                    self.logger.warning(f"Unable to get GitHub directory contents for counting: {path}")
+                    self.logger.warning(
+                        f"Unable to get GitHub directory contents for counting: {path}"
+                    )
                     continue
 
                 contents = response.json()
@@ -209,7 +224,9 @@ class GitHubProvider(BaseProvider):
                         file_ext = Path(file_path).suffix.lower()
 
                         # Check if path matches configured path prefix
-                        if self.config.path and not file_path.startswith(self.config.path):
+                        if self.config.path and not file_path.startswith(
+                            self.config.path
+                        ):
                             continue
 
                         if file_ext in image_extensions:

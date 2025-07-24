@@ -47,8 +47,11 @@ def setup_logging(verbose: bool = False) -> None:
 @app.callback(invoke_without_command=True)
 def main(
     config: Path | None = typer.Option(
-        None, "--config", "-c", exists=True, 
-        help="Configuration file path [default: ~/.config/host-image-backup/config.yaml]"
+        None,
+        "--config",
+        "-c",
+        exists=True,
+        help="Configuration file path [default: ~/.config/host-image-backup/config.yaml]",
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed logs"),
     ctx: typer.Context = typer.Option(None),  # type: ignore
@@ -62,7 +65,6 @@ def main(
 
     # Load configuration
     app_config = AppConfig.load(config)
-
     # Create backup service
     backup_service = BackupService(app_config)
 
@@ -87,7 +89,6 @@ def init() -> None:
                 border_style="yellow",
             )
         )
-        
         # Ask user if they want to overwrite
         confirm = typer.confirm("Do you want to overwrite the existing configuration?")
         if not confirm:
@@ -115,7 +116,9 @@ def backup(
         None, "--limit", "-l", help="Limit download count"
     ),
     skip_existing: bool = typer.Option(
-        True, "--skip-existing/--no-skip-existing", help="Skip existing files [default: skip-existing]"
+        True,
+        "--skip-existing/--no-skip-existing",
+        help="Skip existing files [default: skip-existing]",
     ),
 ) -> None:
     """Backup images from the specified provider"""
@@ -229,7 +232,9 @@ def backup_all(
         None, "--limit", "-l", help="Each provider's limit download count"
     ),
     skip_existing: bool = typer.Option(
-        True, "--skip-existing/--no-skip-existing", help="Skip existing files [default: skip-existing]"
+        True,
+        "--skip-existing/--no-skip-existing",
+        help="Skip existing files [default: skip-existing]",
     ),
 ) -> None:
     """Backup images from all enabled providers"""

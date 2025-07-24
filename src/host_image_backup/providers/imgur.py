@@ -20,7 +20,7 @@ class ImgurProvider(BaseProvider):
 
     def test_connection(self) -> bool:
         """Test Imgur connection
-        
+
         Returns
         -------
         bool
@@ -29,9 +29,7 @@ class ImgurProvider(BaseProvider):
         try:
             headers = {"Authorization": f"Bearer {self.config.access_token}"}
             response = requests.get(
-                f"{self.api_base}/account/me",
-                headers=headers,
-                timeout=10
+                f"{self.api_base}/account/me", headers=headers, timeout=10
             )
             return response.status_code == 200
         except Exception as e:
@@ -40,12 +38,12 @@ class ImgurProvider(BaseProvider):
 
     def list_images(self, limit: int | None = None) -> Iterator[ImageInfo]:
         """List all images in Imgur
-        
+
         Parameters
         ----------
         limit : int, optional
             Limit the number of images returned. If None, no limit is applied.
-            
+
         Yields
         ------
         ImageInfo
@@ -64,17 +62,21 @@ class ImgurProvider(BaseProvider):
                 response = requests.get(
                     f"{self.api_base}/account/me/images/{page}",
                     headers=headers,
-                    timeout=30
+                    timeout=30,
                 )
 
                 if response.status_code != 200:
-                    self.logger.error(f"Failed to get Imgur image list: {response.status_code}")
+                    self.logger.error(
+                        f"Failed to get Imgur image list: {response.status_code}"
+                    )
                     break
 
                 data = response.json()
 
                 if not data.get("success") or not data.get("data"):
-                    self.logger.warning("Imgur API returned no data or unsuccessful response")
+                    self.logger.warning(
+                        "Imgur API returned no data or unsuccessful response"
+                    )
                     break
 
                 images = data["data"]
@@ -96,10 +98,14 @@ class ImgurProvider(BaseProvider):
 
                     # Get filename (from title or extract from link)
                     filename = img.get("title") or Path(url).name
-                    if not filename.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
+                    if not filename.endswith(
+                        (".jpg", ".jpeg", ".png", ".gif", ".webp")
+                    ):
                         # Try to get file extension from URL
                         url_filename = Path(url).name
-                        if url_filename.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
+                        if url_filename.endswith(
+                            (".jpg", ".jpeg", ".png", ".gif", ".webp")
+                        ):
                             filename = url_filename
                         else:
                             # Default to jpg if we can't determine extension
@@ -118,8 +124,8 @@ class ImgurProvider(BaseProvider):
                             "width": img.get("width"),
                             "height": img.get("height"),
                             "views": img.get("views"),
-                            "deletehash": img.get("deletehash")
-                        }
+                            "deletehash": img.get("deletehash"),
+                        },
                     )
                     count += 1
 
@@ -138,14 +144,14 @@ class ImgurProvider(BaseProvider):
 
     def download_image(self, image_info: ImageInfo, output_path: Path) -> bool:
         """Download image from Imgur
-        
+
         Parameters
         ----------
         image_info : ImageInfo
             Information about the image to download.
         output_path : Path
             The path where the image should be saved.
-            
+
         Returns
         -------
         bool
@@ -155,11 +161,7 @@ class ImgurProvider(BaseProvider):
             # Ensure the output directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            response = requests.get(
-                image_info.url,
-                timeout=30,
-                stream=True
-            )
+            response = requests.get(image_info.url, timeout=30, stream=True)
             response.raise_for_status()
 
             with open(output_path, "wb") as f:
@@ -175,7 +177,7 @@ class ImgurProvider(BaseProvider):
 
     def get_image_count(self) -> int | None:
         """Get the total number of images in Imgur
-        
+
         Returns
         -------
         int or None
@@ -184,9 +186,7 @@ class ImgurProvider(BaseProvider):
         try:
             headers = {"Authorization": f"Bearer {self.config.access_token}"}
             response = requests.get(
-                f"{self.api_base}/account/me",
-                headers=headers,
-                timeout=10
+                f"{self.api_base}/account/me", headers=headers, timeout=10
             )
 
             if response.status_code == 200:
