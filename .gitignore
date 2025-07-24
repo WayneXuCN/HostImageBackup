@@ -81,6 +81,7 @@ logs/
 # Temporary files
 temp/
 tmp/
+.ruff_cache/
 
 # macOS specific
 .AppleDouble
