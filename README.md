@@ -1,4 +1,6 @@
-# Host Image Backup
+<div align="center">
+  <h1>Host Image Backup</h1>
+</div>
 
 <div align="center">
   <a href="README.md"><b>English</b></a> | <a href="README.zh-CN.md"><b>简体中文</b></a>
@@ -14,274 +16,633 @@
   <img src="https://img.shields.io/codecov/c/github/WayneXuCN/HostImageBackup?label=coverage" alt="Coverage">
 </p>
 
-> **Host Image Backup** is a modular Python CLI tool for backing up images from various image hosting services to your local machine.
+> **Host Image Backup** is a modular Python CLI tool for backing up images from various image hosting services to your local machine with ease.
 
 ---
 
-## Features
+## ✨ Features
 
-- Modular architecture, easy to extend
-- Supports Aliyun OSS, Tencent COS, SM.MS, Imgur, GitHub
-- Progress bar for backup
-- Rich command-line interface
-- Flexible configuration management
-- Resume interrupted transfers
-- Detailed logging
-
----
-
-## Supported Providers
-
-| Provider   | Supported Features                | Limitations / Notes                  |
-|------------|----------------------------------|--------------------------------------|
-| OSS        | List, backup, resume, skip       | Requires valid Aliyun credentials    |
-| COS        | List, backup, resume, skip       | Requires valid Tencent credentials   |
-| SM.MS      | List, backup                     | Public API, rate limits may apply    |
-| Imgur      | List, backup                     | Requires Imgur client ID/secret      |
-| GitHub     | List, backup                     | Requires GitHub token, repo access   |
+- 🏗️ **Modular Architecture** - Easy to extend with new providers
+- 🌐 **Multi-Provider Support** - Aliyun OSS, Tencent COS, SM.MS, Imgur, GitHub
+- 📊 **Visual Progress** - Beautiful progress bars for backup operations
+- 🎨 **Rich CLI Interface** - Intuitive command-line experience
+- ⚙️ **Flexible Configuration** - YAML-based configuration management
+- 🔄 **Resume Support** - Continue interrupted transfers seamlessly
+- 📝 **Comprehensive Logging** - Detailed operation logs
+- 🧪 **Well Tested** - Comprehensive test coverage for reliability
 
 ---
 
-## Installation
+## 🚀 Supported Providers
+
+| Provider   | Features                         | Notes                            |
+|------------|----------------------------------|----------------------------------|
+| **OSS**    | ✅ List, backup, resume, skip   | Requires Aliyun credentials      |
+| **COS**    | ✅ List, backup, resume, skip   | Requires Tencent credentials     |
+| **SM.MS**  | ✅ List, backup                 | Public API, rate limits apply   |
+| **Imgur**  | ✅ List, backup                 | Requires Imgur client ID/secret |
+| **GitHub** | ✅ List, backup                 | Requires GitHub token & access  |
+
+---
+
+## 📦 Installation
 
 ### Requirements
 
-- Python 3.10+
-- pip or uv
-- (Recommended) virtual environment
+- **Python 3.10+** (Latest stable versions recommended)
+- **pip** or **uv** package manager
 
-### Dependencies
-
-- See [pyproject.toml](pyproject.toml) for all dependencies.
-- Compatible with Linux, macOS, Windows.
-
-### Install from Source
+### Quick Install
 
 ```bash
-pip install -e .
-# or
-uv pip install -e .
+# Install from PyPI
+pip install host-image-backup
+
+# Or upgrade to latest version
+pip install --upgrade host-image-backup
+
+# Verify installation
+host-image-backup --help
+# Or use the short alias
+hib --help
 ```
 
-### Install via PyPI
+### Development Install
 
 ```bash
-pip install host-image-backup
-# Or upgrade to the latest version
-pip install --upgrade host-image-backup
+# Clone repository
+git clone https://github.com/WayneXuCN/HostImageBackup.git
+cd HostImageBackup
+
+# Install development dependencies with uv (recommended)
+uv lock  # generate lock file
+uv sync --all-extras # install all extras (dev)
+
+# Or use pip if you prefer
+pip install -e ".[dev]"
 ```
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 
-The config file is located at `~/.config/host-image-backup/config.yaml`.  
-Each provider section must be filled with valid credentials.
+### Quick Start
 
-### Configuration Fields
+```bash
+# Initialize configuration file
+host-image-backup init
 
-| Field             | Description                                   |
-|-------------------|-----------------------------------------------|
-| access_key_id     | Aliyun OSS access key                         |
-| access_key_secret | Aliyun OSS secret key                         |
-| bucket            | Bucket name                                   |
-| endpoint          | OSS endpoint                                  |
-| prefix            | Path prefix for images                        |
-| secret_id         | Tencent COS secret ID                         |
-| secret_key        | Tencent COS secret key                        |
-| region            | COS region                                    |
-| client_id         | Imgur client ID                               |
-| client_secret     | Imgur client secret                           |
-| token             | GitHub token                                  |
-| repo              | GitHub repository name                        |
+# Edit the generated config file
+# Linux/macOS: ~/.config/host-image-backup/config.yaml
+# Windows: %APPDATA%/host-image-backup/config.yaml
+```
 
-#### Example: Aliyun OSS
+### Configuration Structure
 
 ```yaml
+# Global settings
+default_output_dir: "./backup"
+max_concurrent_downloads: 5
+timeout: 30
+retry_count: 3
+log_level: "INFO"
+
+# Provider configurations
 providers:
   oss:
+    enabled: true
     access_key_id: "your_access_key"
     access_key_secret: "your_secret_key"
     bucket: "your_bucket_name"
     endpoint: "oss-cn-hangzhou.aliyuncs.com"
     prefix: "images/"
-```
-
-#### Example: Tencent COS
-
-```yaml
-providers:
+  
   cos:
+    enabled: false
     secret_id: "your_secret_id"
     secret_key: "your_secret_key"
     bucket: "your_bucket_name"
     region: "ap-guangzhou"
     prefix: "images/"
+  
+  sms:
+    enabled: false
+    api_token: "your_api_token"
+  
+  imgur:
+    enabled: false
+    client_id: "your_client_id"
+    client_secret: "your_client_secret"
+    access_token: "your_access_token"
+    refresh_token: "your_refresh_token"
+  
+  github:
+    enabled: false
+    token: "ghp_your_personal_access_token"
+    owner: "your_username"
+    repo: "your_repository"
+    path: "images"  # optional: specific folder path
 ```
+
+### Configuration Fields Reference
+
+| Field                     | Description                        | Required | Default |
+|---------------------------|------------------------------------|----------|---------|
+| **Global Settings**       |                                    |          |         |
+| `default_output_dir`      | Default backup directory           | No       | "./backup" |
+| `max_concurrent_downloads`| Maximum parallel downloads         | No       | 5       |
+| `timeout`                 | Request timeout (seconds)          | No       | 30      |
+| `retry_count`             | Retry attempts for failed downloads| No       | 3       |
+| `log_level`               | Logging level                      | No       | "INFO"  |
+| **OSS Provider**          |                                    |          |         |
+| `access_key_id`           | Aliyun OSS access key ID           | Yes      | -       |
+| `access_key_secret`       | Aliyun OSS access key secret       | Yes      | -       |
+| `bucket`                  | OSS bucket name                    | Yes      | -       |
+| `endpoint`                | OSS endpoint URL                   | Yes      | -       |
+| `prefix`                  | Path prefix for images             | No       | ""      |
+| **COS Provider**          |                                    |          |         |
+| `secret_id`               | Tencent COS secret ID              | Yes      | -       |
+| `secret_key`              | Tencent COS secret key             | Yes      | -       |
+| `bucket`                  | COS bucket name                    | Yes      | -       |
+| `region`                  | COS region                         | Yes      | -       |
+| **SM.MS Provider**        |                                    |          |         |
+| `api_token`               | SM.MS API token                    | Yes      | -       |
+| **Imgur Provider**        |                                    |          |         |
+| `client_id`               | Imgur application client ID        | Yes      | -       |
+| `client_secret`           | Imgur application client secret    | Yes      | -       |
+| `access_token`            | Imgur user access token            | Yes      | -       |
+| `refresh_token`           | Imgur refresh token                | No       | -       |
+| **GitHub Provider**       |                                    |          |         |
+| `token`                   | GitHub personal access token       | Yes      | -       |
+| `owner`                   | Repository owner username          | Yes      | -       |
+| `repo`                    | Repository name                    | Yes      | -       |
+| `path`                    | Specific folder path in repository | No       | ""      |
 
 ---
 
-## CLI Usage
+## 🛠️ CLI Usage
 
-### Command Overview
+### Quick Start Commands
 
-| Command                | Description                                      |
-|------------------------|--------------------------------------------------|
-| `init`                 | Initialize config file                           |
-| `backup`               | Backup images from provider                      |
-| `list-providers`       | List available providers                         |
-| `test`                 | Test provider connection                         |
+```bash
+# 1. Initialize configuration
+host-image-backup init
+# Or use short alias
+hib init
 
-### Command Details
+# 2. Test provider connection
+host-image-backup test oss
+# Or use short alias
+hib test oss
 
-#### `init`
+# 3. List available providers
+host-image-backup list
+# Or use short alias
+hib list
 
-Initialize a default config file.
+# 4. Backup images from a provider
+host-image-backup backup oss --output ./my-backup
+# Or use short alias
+hib backup oss --output ./my-backup
+
+# 5. Backup from all enabled providers
+host-image-backup backup-all --output ./full-backup
+# Or use short alias
+hib backup-all --output ./full-backup
+```
+
+### Command Reference
+
+| Command         | Description                           | Aliases |
+|-----------------|---------------------------------------|---------|
+| `init`          | Initialize default configuration file | -       |
+| `backup`        | Backup images from specific provider  | -       |
+| `backup-all`    | Backup from all enabled providers     | -       |
+| `list`          | List all available providers          | `list-providers` |
+| `test`          | Test provider connection              | -       |
+| `info`          | Show detailed provider information    | -       |
+
+### Detailed Command Usage
+
+#### `init` - Initialize Configuration
+
+Create a default configuration file with all providers.
 
 ```bash
 host-image-backup init
 ```
 
-#### `backup`
+**Options:**
 
-Backup images from a provider.
+- Automatically creates config directory if needed
+- Prompts before overwriting existing configuration
+- Generates template with all supported providers
+
+#### `backup` - Backup from Provider
+
+Backup images from a specific provider to local storage.
 
 ```bash
-host-image-backup backup --provider oss --output ./backup
+host-image-backup backup <provider> [OPTIONS]
+```
+
+**Arguments:**
+
+- `<provider>`: Provider name (oss, cos, sms, imgur, github)
+
+**Options:**
+
+```bash
+-o, --output PATH           Output directory (default: ./backup)
+-l, --limit INTEGER         Limit number of images to download
+-c, --config PATH          Custom configuration file path
+--skip-existing / --no-skip-existing  Skip existing files (default: skip)
+-v, --verbose              Show detailed logs
+```
+
+**Examples:**
+
+```bash
+# Basic backup
+host-image-backup backup oss
+# Or use short alias
+hib backup oss
+
+# Custom output directory with limit
+host-image-backup backup oss --output ~/Pictures/backup --limit 100
+# Or use short alias
+hib backup oss --output ~/Pictures/backup --limit 100
+
+# Verbose backup with custom config
+host-image-backup backup imgur --config ./my-config.yaml --verbose
+# Or use short alias
+hib backup imgur --config ./my-config.yaml --verbose
+
+# Don't skip existing files
+host-image-backup backup github --no-skip-existing
+# Or use short alias
+hib backup github --no-skip-existing
+```
+
+#### `backup-all` - Backup All Providers
+
+Backup images from all enabled providers in sequence.
+
+```bash
+host-image-backup backup-all [OPTIONS]
 ```
 
 **Options:**
 
-- `--provider <name>`: Specify provider (oss, cos, smms, imgur, github)
-- `--output <dir>`: Output directory for backups
-- `--config <path>`: Use custom config file
-- `--limit <n>`: Limit number of images to download
-- `--skip-existing`: Skip files already downloaded
-- `--verbose`: Show detailed logs
-
-#### `list-providers`
-
-List all available providers.
-
 ```bash
-host-image-backup list-providers
+-o, --output PATH           Output directory for all providers
+-l, --limit INTEGER         Limit per provider (not total)
+--skip-existing / --no-skip-existing  
+                           Skip existing files for all providers
+-v, --verbose              Show detailed logs
 ```
 
-#### `test`
-
-Test connection to a provider.
+**Example:**
 
 ```bash
-host-image-backup test --provider oss
+host-image-backup backup-all --output ~/backup --limit 50 --verbose
+# Or use short alias
+hib backup-all --output ~/backup --limit 50 --verbose
+```
+
+#### `list` - List Providers
+
+Display all available providers and their status.
+
+```bash
+host-image-backup list
+```
+
+**Output includes:**
+
+- Provider name
+- Enabled/Disabled status
+- Configuration validation status
+
+#### `test` - Test Connection
+
+Test connection and authentication for a specific provider.
+
+```bash
+host-image-backup test <provider>
+```
+
+**Example:**
+
+```bash
+host-image-backup test oss
+host-image-backup test github
+# Or use short alias
+hib test oss
+hib test github
+```
+
+#### `info` - Provider Information
+
+Show detailed information about a specific provider.
+
+```bash
+host-image-backup info <provider>
+```
+
+**Information includes:**
+
+- Provider status
+- Configuration validation
+- Connection test results
+- Total image count (if available)
+
+### Global Options
+
+All commands support these global options:
+
+```bash
+-c, --config PATH          Custom configuration file path
+-v, --verbose              Enable verbose logging
+--help                     Show help message
 ```
 
 ---
 
-## Typical Use Cases
+## 💡 Use Cases & Examples
 
-- Mirror images from cloud providers to local disk for backup or migration.
-- Aggregate images from multiple providers into a unified local archive.
-- Automate scheduled backups via cron or CI/CD.
+### Common Scenarios
 
----
+- **📦 Backup & Migration**: Mirror images from cloud providers to local storage
+- **🔄 Multi-Provider Aggregation**: Consolidate images from multiple services
+- **⏰ Scheduled Backups**: Automate backups via cron jobs or CI/CD pipelines
+- **🗂️ Archive Management**: Create organized local image archives
+- **🚀 Disaster Recovery**: Maintain offline copies for business continuity
 
-## Error Handling & FAQ
+### Real-World Examples
 
-### Common Issues
-
-- **Invalid credentials**: Check your config file for typos.
-- **Network errors**: Ensure internet connectivity.
-- **Rate limits**: Some providers (SM.MS, Imgur) may restrict requests.
-- **Permission denied**: Verify access rights for output directory.
-
-### Troubleshooting
-
-- Run with `--verbose` for detailed logs.
-- Check log files in the output directory.
-- For provider-specific issues, consult their official docs.
-
----
-
-## Security Notes
-
-- **Credential Protection**: Never share your config file or credentials publicly.
-- Use environment variables or secret managers for sensitive data if possible.
-- Restrict file permissions for config files (`chmod 600 ~/.config/host-image-backup/config.yaml`).
-
----
-
-## Extending & Custom Providers
-
-- To add a new provider, implement a subclass in `src/host_image_backup/providers/`.
-- See [src/host_image_backup/providers/base.py](src/host_image_backup/providers/base.py) for the provider interface.
-- Contributions for new providers are welcome!
-
----
-
-## Project Roadmap
-
-- [ ] Add more image hosting providers
-- [ ] Web UI for configuration and monitoring
-- [ ] Scheduled backup support
-- [ ] Enhanced error reporting
-- [ ] Multi-threaded download
-
----
-
-## Development
-
-### Environment Setup
+#### Personal Photo Backup
 
 ```bash
-git clone git@github.com:WayneXuCN/HostImageBackup.git
+# Backup all your personal photos from multiple services
+host-image-backup backup-all --output ~/PhotoBackup
+# Or use short alias
+hib backup-all --output ~/PhotoBackup
+```
+
+#### Scheduled Backup (Cron)
+
+```bash
+# Add to crontab for daily backups
+0 2 * * * /usr/local/bin/host-image-backup backup-all --output /backup/images --limit 100
+# Or use short alias
+0 2 * * * /usr/local/bin/hib backup-all --output /backup/images --limit 100
+```
+
+#### Migration Between Providers
+
+```bash
+# Step 1: Backup from old provider
+host-image-backup backup old-provider --output ./migration-temp
+# Or use short alias
+hib backup old-provider --output ./migration-temp
+
+# Step 2: Upload to new provider (manual or script-based)
+# TODO
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Common Issues & Solutions
+
+#### ❌ Authentication Errors
+
+**Problem**: Invalid credentials or tokens
+
+**Solutions**:
+
+- Verify configuration file format and credentials
+- Check token expiration dates
+- Ensure proper permissions for API access
+- Test individual providers: `host-image-backup test <provider>`
+
+#### ❌ Network & Connectivity Issues
+
+**Problem**: Connection timeouts or failures
+
+**Solutions**:
+
+- Check internet connectivity
+- Increase timeout in configuration
+- Use `--verbose` flag for detailed error information
+- Verify provider service status
+
+#### ❌ Permission & File System Errors
+
+**Problem**: Cannot write to output directory
+
+**Solutions**:
+
+```bash
+# Create output directory with proper permissions
+mkdir -p ~/backup && chmod 755 ~/backup
+
+# Set config file permissions for security
+chmod 600 ~/.config/host-image-backup/config.yaml
+```
+
+#### ❌ Rate Limiting
+
+**Problem**: Too many requests to provider APIs
+
+**Solutions**:
+
+- Reduce `max_concurrent_downloads` in configuration
+- Add delays between requests
+- Use `--limit` option to control download volume
+- Check provider-specific rate limits
+
+### Debug Commands
+
+```bash
+# Test specific provider connection
+host-image-backup test oss --verbose
+# Or use short alias
+hib test oss --verbose
+
+# Show provider detailed information
+host-image-backup info github
+# Or use short alias
+hib info github
+
+# Run backup with maximum verbosity
+host-image-backup backup imgur --verbose --limit 5
+# Or use short alias
+hib backup imgur --verbose --limit 5
+```
+
+### Log Analysis
+
+```bash
+# Check recent logs
+tail -f logs/host_image_backup_*.log
+
+# Search for errors
+grep -i error logs/host_image_backup_*.log
+
+# Monitor backup progress
+grep -E "(Successfully|Failed)" logs/host_image_backup_*.log
+```
+
+---
+
+## 🔒 Security & Best Practices
+
+### Credential Security
+
+- **Never commit credentials** to version control
+- **Use environment variables** for sensitive data when possible
+- **Set restrictive file permissions** on configuration files:
+
+```bash
+chmod 600 ~/.config/host-image-backup/config.yaml
+```
+
+### Environment Variables Support
+
+```bash
+# Set credentials via environment variables
+export OSS_ACCESS_KEY_ID="your_key"
+export OSS_ACCESS_KEY_SECRET="your_secret"
+export GITHUB_TOKEN="ghp_your_token"
+
+# Reference in config file
+providers:
+  oss:
+    access_key_id: "${OSS_ACCESS_KEY_ID}"
+    access_key_secret: "${OSS_ACCESS_KEY_SECRET}"
+```
+
+### Network Security
+
+- Use HTTPS endpoints only (enabled by default)
+- Consider VPN or private networks for sensitive data
+- Monitor network traffic for unusual patterns
+
+---
+
+## 🏗️ Development & Contributing
+
+### Development Setup
+
+```bash
+# Clone repository
+git clone https://github.com/WayneXuCN/HostImageBackup.git
 cd HostImageBackup
+
+# Create virtual environment
 python -m venv .venv
 source .venv/bin/activate  # Linux/macOS
-.venv\Scripts\activate     # Windows
-pip install -e ".[dev]"
+# .venv\Scripts\activate   # Windows
+
+# Install development dependencies with uv (recommended)
+uv lock  # generate lock file
+uv sync --all-extras # install all extras (dev)
+
+# Setup pre-commit hooks
 pre-commit install
 ```
 
-### Testing
+### Running Tests
 
 ```bash
+# Run all tests
 pytest
+
+# Run with coverage
+pytest --cov=src/host_image_backup
+
+# Run specific test file
+pytest tests/test_config.py
+
+# Run tests with verbose output
+pytest -v
 ```
 
-### Formatting
+### Code Quality
 
 ```bash
-black src tests
-```
+# Format code
+ruff format src tests
 
-### Type Checking
-
-```bash
+# Type checking
 mypy src
+
+# Lint code
+ruff check src tests
+
+# Run all quality checks
+make lint  # or your preferred task runner
 ```
 
----
+### Adding New Providers
 
-## Contributing
+1. **Create provider class** in `src/host_image_backup/providers/`
+2. **Implement required methods** from `BaseProvider`
+3. **Add configuration class** in `src/host_image_backup/config.py`
+4. **Update provider registry** in service and CLI modules
+5. **Add comprehensive tests**
+6. **Update documentation**
 
-1. Fork the repo
-2. Create your feature branch (`git checkout -b feature/foo`)
-3. Commit your changes (`git commit -am 'Add foo feature'`)
-4. Push to the branch (`git push origin feature/foo`)
-5. Open a Pull Request
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details.
-
----
-
-## Community & Support
-
-- GitHub Issues: [Submit here](https://github.com/WayneXuCN/HostImageBackup/issues)
-- Discussions: [GitHub Discussions](https://github.com/WayneXuCN/HostImageBackup/discussions)
-- Email: [wayne.xu.cn@gmail.com](mailto:wayne.xu.cn@gmail.com)
+See [Contributing Guide](CONTRIBUTING.md) for detailed instructions.
 
 ---
 
-## License
+## 🗺️ Roadmap
 
-MIT License
+### Version 0.2.0
+
+- [ ] **Enhanced Error Handling**: Better error messages and recovery
+- [ ] **Configuration Validation**: Real-time config validation
+- [ ] **Progress Persistence**: Resume interrupted backups
+- [ ] **Performance Optimization**: Faster concurrent downloads
+
+### Version 0.3.0
+
+- [ ] **Web UI**: Browser-based configuration and monitoring
+- [ ] **Database Support**: SQLite for backup metadata
+- [ ] **Advanced Filtering**: Date ranges, file types, size limits
+- [ ] **Cloud Integration**: Direct cloud-to-cloud transfers
+
+### Additional Providers
+
+- [ ] **Cloudinary**: Image management platform
+- [ ] **AWS S3**: Amazon cloud storage
+- [ ] **Google Drive**: Google cloud storage  
+- [ ] **Dropbox**: File hosting service
+- [ ] **OneDrive**: Microsoft cloud storage
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Here's how you can help:
+
+- 🐛 **Report bugs** and request features
+- 📝 **Improve documentation** and examples
+- 🔧 **Add new providers** or enhance existing ones
+- 🧪 **Write tests** and improve code coverage
+- 🎨 **Improve user experience** and CLI interface
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+### Third-Party Licenses
+
+- All dependencies maintain their respective licenses
+- See [pyproject.toml](pyproject.toml) for complete dependency list
