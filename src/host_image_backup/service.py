@@ -129,7 +129,7 @@ class BackupService:
                 TaskProgressColumn(),
                 TextColumn(
                     "[progress.percentage]{task.completed}"
-                    + ("{task.total}" if total_count else "/{task.completed}")
+                    + ("/{task.total}" if total_count else "")
                     + " images"
                 ),
             ) as progress:
