@@ -28,6 +28,11 @@ def setup_logging(verbose: bool = False) -> None:
     """
     level = "DEBUG" if verbose else "INFO"
     logger.remove()  # Remove default logger
+
+    # Ensure logs directory exists
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+
     logger.add(
         "logs/host_image_backup_{time}.log",
         rotation="5 MB",
@@ -58,12 +63,16 @@ def main(
 ) -> None:
     setup_logging(verbose)
 
-    # if there is no arguments, show help
+    # if there is no subcommand, show help
     if ctx.invoked_subcommand is None:
         console.print(ctx.get_help())
         raise typer.Exit(code=0)
 
-    # Load configuration
+    # For init command, we don't need to load configuration
+    if ctx.invoked_subcommand == "init":
+        return
+
+    # Load configuration for other commands
     app_config = AppConfig.load(config)
     # Create backup service
     backup_service = BackupService(app_config)
@@ -77,8 +86,6 @@ def main(
 @app.command()
 def init() -> None:
     """Initialize configuration file"""
-    config: AppConfig = app.config  # type: ignore
-
     # Check if config file already exists
     config_file = AppConfig.get_config_file()
     if config_file.exists():
@@ -96,6 +103,7 @@ def init() -> None:
             raise typer.Exit(code=0)
 
     # Create default configuration
+    config = AppConfig()
     config.create_default_config()
 
     console.print(
