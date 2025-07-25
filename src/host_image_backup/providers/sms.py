@@ -27,7 +27,7 @@ class SMSProvider(BaseProvider):
             True if connection is successful, False otherwise.
         """
         try:
-            headers = {"Authorization": self.config.token}
+            headers = {"Authorization": self.config.api_token}
             response = requests.get(
                 f"{self.api_base}/profile", headers=headers, timeout=10
             )
@@ -50,7 +50,7 @@ class SMSProvider(BaseProvider):
             Information about each image.
         """
         try:
-            headers = {"Authorization": self.config.token}
+            headers = {"Authorization": self.config.api_token}
             count = 0
             page = 1
 
@@ -174,7 +174,7 @@ class SMSProvider(BaseProvider):
             The total number of images, or None if unable to determine.
         """
         try:
-            headers = {"Authorization": self.config.token}
+            headers = {"Authorization": self.config.api_token}
             response = requests.get(
                 f"{self.api_base}/profile", headers=headers, timeout=10
             )
