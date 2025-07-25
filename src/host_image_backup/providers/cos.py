@@ -6,7 +6,7 @@ from loguru import logger
 from qcloud_cos import CosConfig, CosS3Client
 
 from ..config import COSConfig
-from .base import BaseProvider, ImageInfo
+from .base import BaseProvider, ImageInfo, SUPPORTED_IMAGE_EXTENSIONS
 
 
 class COSProvider(BaseProvider):
@@ -68,15 +68,7 @@ class COSProvider(BaseProvider):
         try:
             count = 0
             marker = ""
-            image_extensions = {
-                ".jpg",
-                ".jpeg",
-                ".png",
-                ".gif",
-                ".bmp",
-                ".webp",
-                ".svg",
-            }
+            image_extensions = SUPPORTED_IMAGE_EXTENSIONS
 
             while True:
                 if limit and count >= limit:
@@ -189,15 +181,7 @@ class COSProvider(BaseProvider):
         try:
             count = 0
             marker = ""
-            image_extensions = {
-                ".jpg",
-                ".jpeg",
-                ".png",
-                ".gif",
-                ".bmp",
-                ".webp",
-                ".svg",
-            }
+            image_extensions = SUPPORTED_IMAGE_EXTENSIONS
 
             while True:
                 response = self.client.list_objects(

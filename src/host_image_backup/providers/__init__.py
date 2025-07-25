@@ -1,4 +1,4 @@
-from .base import BaseProvider, ImageInfo
+from .base import BaseProvider, ImageInfo, SUPPORTED_IMAGE_EXTENSIONS
 from .cos import COSProvider
 from .github import GitHubProvider
 from .imgur import ImgurProvider
@@ -8,6 +8,7 @@ from .sms import SMSProvider
 __all__ = [
     "BaseProvider",
     "ImageInfo",
+    "SUPPORTED_IMAGE_EXTENSIONS",
     "OSSProvider",
     "COSProvider",
     "SMSProvider",

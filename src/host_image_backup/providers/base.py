@@ -6,6 +6,20 @@ from typing import Any
 
 from loguru import logger
 
+# Supported image file extensions
+SUPPORTED_IMAGE_EXTENSIONS = {
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".bmp",
+    ".webp",
+    ".svg",
+    ".tiff",
+    ".tif",
+    ".ico",
+}
+
 
 @dataclass
 class ImageInfo:

@@ -10,8 +10,8 @@ import requests
 from loguru import logger
 
 from ..config import GitHubConfig
-from .base import BaseProvider, ImageInfo
-
+from .base import BaseProvider, ImageInfo, SUPPORTED_IMAGE_EXTENSIONS
+ 
 
 class GitHubProvider(BaseProvider):
     """GitHub Provider"""
@@ -63,7 +63,7 @@ class GitHubProvider(BaseProvider):
             "Accept": "application/vnd.github.v3+json",
         }
         count = 0
-        image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg"}
+        image_extensions = SUPPORTED_IMAGE_EXTENSIONS
 
         # Use iterative approach instead of recursion to avoid potential stack overflow
         paths_to_process = [self.config.path.rstrip("/") if self.config.path else ""]

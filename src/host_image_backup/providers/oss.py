@@ -6,7 +6,7 @@ import oss2
 from loguru import logger
 
 from ..config import OSSConfig
-from .base import BaseProvider, ImageInfo
+from .base import BaseProvider, ImageInfo, SUPPORTED_IMAGE_EXTENSIONS
 
 
 class OSSProvider(BaseProvider):
@@ -64,15 +64,7 @@ class OSSProvider(BaseProvider):
         try:
             count = 0
             # Supported image extensions
-            image_extensions = {
-                ".jpg",
-                ".jpeg",
-                ".png",
-                ".gif",
-                ".bmp",
-                ".webp",
-                ".svg",
-            }
+            image_extensions = SUPPORTED_IMAGE_EXTENSIONS
 
             for obj in oss2.ObjectIterator(self.bucket, prefix=self.config.prefix):
                 if limit and count >= limit:
@@ -159,15 +151,7 @@ class OSSProvider(BaseProvider):
         """
         try:
             count = 0
-            image_extensions = {
-                ".jpg",
-                ".jpeg",
-                ".png",
-                ".gif",
-                ".bmp",
-                ".webp",
-                ".svg",
-            }
+            image_extensions = SUPPORTED_IMAGE_EXTENSIONS
 
             for obj in oss2.ObjectIterator(self.bucket, prefix=self.config.prefix):
                 file_ext = Path(obj.key).suffix.lower()
