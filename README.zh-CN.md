@@ -12,105 +12,89 @@
   </a>
   <img src="https://img.shields.io/github/stars/WayneXuCN/HostImageBackup?style=social" alt="GitHub stars">
   <img src="https://img.shields.io/github/license/WayneXuCN/HostImageBackup" alt="License">
-  <img src="https://img.shields.io/github/actions/workflow/status/WayneXuCN/HostImageBackup/ci.yml?branch=main" alt="CI">
-  <img src="https://img.shields.io/codecov/c/github/WayneXuCN/HostImageBackup?label=coverage" alt="Coverage">
+
 </p>
 
-> **Host Image Backup** 是一个模块化的 Python CLI 工具，可轻松将图像从各种图像托管服务备份到您的本地机器。
+> **Host Image Backup** 是一个模块化的 Python CLI 工具，可以轻松地将图像从各种图像托管（图床）服务备份到本地机器。
+
+## 功能特性
+
+- 模块化架构：轻松扩展新提供商
+- 多提供商支持：阿里云 OSS、腾讯 COS、SM.MS、Imgur、GitHub
+- 可视化进度：备份操作的进度条
+- 丰富的 CLI 界面：直观的命令行体验
+- 灵活配置：基于 YAML 的配置管理
+- 断点续传：继续中断的传输
+- 全面日志：详细的操作日志
+- 完善测试：具有测试覆盖率的可靠工具
+- 上传支持：将图像上传到云存储
+- 数据管理：跟踪备份操作和文件
+- 批量操作：一次上传多个文件
+- 重复检测：查找和管理重复文件
+- 图像压缩：高质量压缩与质量控制
 
 ---
 
-## ✨ 特性
+## 支持的提供商
 
-- 🏗️ **模块化架构** - 易于扩展新的提供商
-- 🌐 **多提供商支持** - 阿里云 OSS、腾讯 COS、SM.MS、Imgur、GitHub
-- 📊 **可视化进度** - 美观的备份操作进度条
-- 🎨 **丰富的 CLI 界面** - 直观的命令行体验
-- ⚙️ **灵活配置** - 基于 YAML 的配置管理
-- 🔄 **断点续传支持** - 无缝继续中断的传输
-- 📝 **全面日志记录** - 详细的操作日志
-- 🚀 **上传支持** - 上传图像到云存储提供商
-- 📈 **元数据管理** - 跟踪备份操作和文件信息
-- 📦 **批量操作** - 一次上传多个文件
-- 🔍 **重复检测** - 查找和管理重复文件
+| 提供商     | 功能                                        | 备注                              |
+|------------|---------------------------------------------|-----------------------------------|
+| OSS        | 列表、备份、上传、删除、文件信息            | 需要阿里云凭证                    |
+| COS        | 列表、备份、上传、删除、文件信息            | 需要腾讯云凭证                    |
+| SM.MS      | 列表、备份                                  | 公共 API，适用速率限制            |
+| Imgur      | 列表、备份                                  | 需要 Imgur 客户端 ID/密钥         |
+| GitHub     | 列表、备份                                  | 需要 GitHub 令牌和访问权限        |
 
 ---
 
-## 🚀 支持的提供商
+## 安装
 
-| 提供商     | 功能                                      | 备注                              |
-|------------|-------------------------------------------|-----------------------------------|
-| **OSS**    | ✅ 列表、备份、上传、删除、文件信息        | 需要阿里云凭证                    |
-| **COS**    | ✅ 列表、备份、上传、删除、文件信息        | 需要腾讯云凭证                    |
-| **SM.MS**  | ✅ 列表、备份                              | 公共 API，适用速率限制            |
-| **Imgur**  | ✅ 列表、备份                              | 需要 Imgur 客户端 ID/密钥         |
-| **GitHub** | ✅ 列表、备份                              | 需要 GitHub 令牌和访问权限        |
+**要求：**
 
----
+- Python 3.10 或更高版本
+- pip 或 uv 包管理器
 
-## 📦 安装
-
-### 要求
-
-- **Python 3.10+** (推荐最新稳定版本)
-- **pip** 或 **uv** 包管理器
-
-### 快速安装
+**从 PyPI 安装：**
 
 ```bash
-# 从 PyPI 安装
 pip install host-image-backup
-
-# 或升级到最新版本
 pip install --upgrade host-image-backup
-
-# 验证安装
 host-image-backup --help
-# 或使用短别名
 hib --help
 ```
 
-### 开发安装
+**开发安装：**
 
 ```bash
-# 克隆仓库
 git clone https://github.com/WayneXuCN/HostImageBackup.git
 cd HostImageBackup
-
-# 使用 uv 安装开发依赖 (推荐)
-uv lock  # 生成锁文件
-uv sync --all-extras # 安装所有额外依赖 (dev)
-
-# 或者如果您喜欢使用 pip
+uv lock
+uv sync --all-extras
+# 或使用 pip：
 pip install -e ".[dev]"
 ```
 
 ---
 
-## ⚙️ 配置
+## 配置
 
-### 快速开始
+**快速开始：**
 
 ```bash
-# 初始化配置文件
 host-image-backup init
-
-# 编辑生成的配置文件
+# 编辑配置文件：
 # Linux/macOS: ~/.config/host-image-backup/config.yaml
 # Windows: %APPDATA%/host-image-backup/config.yaml
 ```
 
-### 配置结构
+**配置示例：**
 
 ```yaml
-# 全局设置
 default_output_dir: "./backup"
 max_concurrent_downloads: 5
 timeout: 30
 retry_count: 3
 log_level: "INFO"
-
-# 提供商配置
 providers:
   oss:
     enabled: true
@@ -119,7 +103,6 @@ providers:
     bucket: "your_bucket_name"
     endpoint: "oss-cn-hangzhou.aliyuncs.com"
     prefix: "images/"
-  
   cos:
     enabled: false
     secret_id: "your_secret_id"
@@ -127,643 +110,301 @@ providers:
     bucket: "your_bucket_name"
     region: "ap-guangzhou"
     prefix: "images/"
-  
   sms:
     enabled: false
     api_token: "your_api_token"
-  
   imgur:
     enabled: false
     client_id: "your_client_id"
     client_secret: "your_client_secret"
     access_token: "your_access_token"
     refresh_token: "your_refresh_token"
-  
   github:
     enabled: false
     token: "ghp_your_personal_access_token"
     owner: "your_username"
     repo: "your_repository"
-    path: "images"  # 可选: 特定文件夹路径
+    path: "images"
 ```
 
-### 配置字段参考
+**配置字段：**
 
-| 字段                      | 描述                              | 必需 | 默认值 |
-|---------------------------|-----------------------------------|------|--------|
-| **全局设置**              |                                   |      |        |
-| `default_output_dir`      | 默认备份目录                      | 否   | "./backup" |
-| `max_concurrent_downloads`| 最大并行下载数                    | 否   | 5       |
-| `timeout`                 | 请求超时时间 (秒)                 | 否   | 30      |
-| `retry_count`             | 下载失败重试次数                  | 否   | 3       |
-| `log_level`               | 日志级别                          | 否   | "INFO"  |
-| **OSS 提供商**            |                                   |      |        |
-| `access_key_id`           | 阿里云 OSS 访问密钥 ID            | 是   | -       |
-| `access_key_secret`       | 阿里云 OSS 访问密钥密钥           | 是   | -       |
-| `bucket`                  | OSS 存储桶名称                    | 是   | -       |
-| `endpoint`                | OSS 终端节点 URL                  | 是   | -       |
-| `prefix`                  | 图像路径前缀                      | 否   | ""      |
-| **COS 提供商**            |                                   |      |        |
-| `secret_id`               | 腾讯云 COS 密钥 ID                | 是   | -       |
-| `secret_key`              | 腾讯云 COS 密钥密钥               | 是   | -       |
-| `bucket`                  | COS 存储桶名称                    | 是   | -       |
-| `region`                  | COS 区域                          | 是   | -       |
-| **SM.MS 提供商**          |                                   |      |        |
-| `api_token`               | SM.MS API 令牌                    | 是   | -       |
-| **Imgur 提供商**          |                                   |      |        |
-| `client_id`               | Imgur 应用客户端 ID               | 是   | -       |
-| `client_secret`           | Imgur 应用客户端密钥              | 是   | -       |
-| `access_token`            | Imgur 用户访问令牌                | 是   | -       |
-| `refresh_token`           | Imgur 刷新令牌                    | 否   | -       |
-| **GitHub 提供商**         |                                   |      |        |
-| `token`                   | GitHub 个人访问令牌               | 是   | -       |
-| `owner`                   | 仓库所有者用户名                  | 是   | -       |
-| `repo`                    | 仓库名称                          | 是   | -       |
-| `path`                    | 仓库中的特定文件夹路径            | 否   | ""      |
+| 字段                      | 描述                           | 必需 | 默认值      |
+|---------------------------|--------------------------------|------|-------------|
+| default_output_dir        | 备份目录                       | 否   | "./backup"  |
+| max_concurrent_downloads  | 并行下载数                     | 否   | 5           |
+| timeout                   | 请求超时（秒）                 | 否   | 30          |
+| retry_count               | 重试次数                       | 否   | 3           |
+| log_level                 | 日志级别                       | 否   | "INFO"      |
+| access_key_id             | 阿里云 OSS 访问密钥 ID         | 是   | -           |
+| access_key_secret         | 阿里云 OSS 访问密钥密钥        | 是   | -           |
+| bucket                    | OSS/COS 存储桶名称             | 是   | -           |
+| endpoint                  | OSS 端点 URL                   | 是   | -           |
+| region                    | COS 区域                       | 是   | -           |
+| secret_id                 | 腾讯云 COS 密钥 ID             | 是   | -           |
+| secret_key                | 腾讯云 COS 密钥密钥            | 是   | -           |
+| api_token                 | SM.MS API 令牌                 | 是   | -           |
+| client_id                 | Imgur 客户端 ID                | 是   | -           |
+| client_secret             | Imgur 客户端密钥               | 是   | -           |
+| access_token              | Imgur 访问令牌                 | 是   | -           |
+| refresh_token             | Imgur 刷新令牌                 | 否   | -           |
+| token                     | GitHub 令牌                    | 是   | -           |
+| owner                     | GitHub 仓库所有者              | 是   | -           |
+| repo                      | GitHub 仓库名称                | 是   | -           |
+| path                      | 仓库中的文件夹路径             | 否   | ""          |
 
 ---
 
-## 🛠️ CLI 使用
+## CLI 使用
 
-### 快速开始命令
+**快速开始：**
 
 ```bash
-# 1. 初始化配置
-host-image-backup init
-# 或使用短别名
-hib init
-
-# 2. 测试提供商连接
-host-image-backup test oss
-# 或使用短别名
-hib test oss
-
-# 3. 列出可用提供商
-host-image-backup list
-# 或使用短别名
-hib list
-
-# 4. 从提供商备份图像
-host-image-backup backup oss --output ./my-backup
-# 或使用短别名
-hib backup oss --output ./my-backup
-
-# 5. 从所有启用的提供商备份
-host-image-backup backup-all --output ./full-backup
-# 或使用短别名
-hib backup-all --output ./full-backup
+host-image-backup config init
+hib config init
+host-image-backup provider test oss
+hib provider test oss
+host-image-backup provider list
+hib provider list
+host-image-backup backup start oss --output ./my-backup
+hib backup start oss --output ./my-backup
+host-image-backup backup all --output ./full-backup
+hib backup all --output ./full-backup
 ```
 
-### 命令参考
+**命令组：**
 
-| 命令           | 描述                                          | 别名 |
-|----------------|-----------------------------------------------|------|
-| `init`         | 初始化默认配置文件                            | -    |
-| `backup`       | 从特定提供商备份图像                          | -    |
-| `backup-all`   | 从所有启用的提供商备份                        | -    |
-| `upload`       | 上传单个图像到提供商                          | -    |
-| `upload-all`   | 从目录上传多个图像到提供商                    | -    |
-| `stats`        | 显示备份统计和摘要信息                        | -    |
-| `history`      | 显示备份操作历史记录                          | -    |
-| `tool`         | 备份管理工具                                  | -    |
-| `list`         | 列出所有可用提供商                            | `list-providers` |
-| `test`         | 测试提供商连接                                | -    |
-| `info`         | 显示详细的提供商信息                          | -    |
+| 组         | 命令                   | 描述                               |
+|------------|------------------------|------------------------------------|
+| 配置       | config init            | 初始化配置文件                     |
+| 提供商     | provider list          | 列出提供商                         |
+|            | provider test          | 测试提供商连接                     |
+|            | provider info          | 显示提供商信息                     |
+| 备份       | backup start           | 从特定提供商备份                   |
+|            | backup all             | 从所有启用的提供商备份             |
+| 上传       | upload file            | 上传单个图像                       |
+|            | upload directory       | 上传多个图像                       |
+| 数据       | data stats             | 显示备份统计信息                   |
+|            | data history           | 显示备份历史                       |
+|            | data duplicates        | 查找重复文件                       |
+|            | data cleanup           | 清理备份文件                       |
+|            | data verify            | 验证备份文件完整性                 |
+|            | data compress          | 压缩图像                           |
 
-### 详细命令使用
-
-#### `init` - 初始化配置
-
-创建包含所有提供商的默认配置文件。
+**示例：**
 
 ```bash
-host-image-backup init
+host-image-backup backup start oss
+hib backup start oss
+host-image-backup backup start oss --output ~/Pictures/backup --limit 100
+hib backup start oss --output ~/Pictures/backup --limit 100
+host-image-backup backup start imgur --config ./my-config.yaml --verbose
+hib backup start imgur --config ./my-config.yaml --verbose
+host-image-backup backup start github --no-skip-existing
+hib backup start github --no-skip-existing
+host-image-backup backup all --output ~/backup --limit 50 --verbose
+hib backup all --output ~/backup --limit 50 --verbose
 ```
 
-**选项:**
-
-- 如果需要，自动创建配置目录
-- 覆盖现有配置前提示
-- 生成包含所有支持提供商的模板
-
-#### `backup` - 从提供商备份
-
-从特定提供商备份图像到本地存储。
+**全局选项：**
 
 ```bash
-host-image-backup backup <provider> [OPTIONS]
-```
-
-**参数:**
-
-- `<provider>`: 提供商名称 (oss, cos, sms, imgur, github)
-
-**选项:**
-
-```bash
--o, --output PATH           输出目录 (默认: ./backup)
--l, --limit INTEGER         限制下载图像数量
--c, --config PATH          自定义配置文件路径
---skip-existing / --no-skip-existing  跳过现有文件 (默认: 跳过)
--v, --verbose              显示详细日志
-```
-
-**示例:**
-
-```bash
-# 基本备份
-host-image-backup backup oss
-# 或使用短别名
-hib backup oss
-
-# 自定义输出目录和限制
-host-image-backup backup oss --output ~/Pictures/backup --limit 100
-# 或使用短别名
-hib backup oss --output ~/Pictures/backup --limit 100
-
-# 使用自定义配置的详细备份
-host-image-backup backup imgur --config ./my-config.yaml --verbose
-# 或使用短别名
-hib backup imgur --config ./my-config.yaml --verbose
-
-# 不跳过现有文件
-host-image-backup backup github --no-skip-existing
-# 或使用短别名
-hib backup github --no-skip-existing
-```
-
-#### `backup-all` - 备份所有提供商
-
-按顺序从所有启用的提供商备份图像。
-
-```bash
-host-image-backup backup-all [OPTIONS]
-```
-
-**选项:**
-
-```bash
--o, --output PATH           所有提供商的输出目录
--l, --limit INTEGER         每个提供商的限制 (非总数)
---skip-existing / --no-skip-existing  
-                           为所有提供商跳过现有文件
--v, --verbose              显示详细日志
-```
-
-**示例:**
-
-```bash
-host-image-backup backup-all --output ~/backup --limit 50 --verbose
-# 或使用短别名
-hib backup-all --output ~/backup --limit 50 --verbose
-```
-
-#### `list` - 列出提供商
-
-显示所有可用提供商及其状态。
-
-```bash
-host-image-backup list
-```
-
-**输出包括:**
-
-- 提供商名称
-- 启用/禁用状态
-- 配置验证状态
-
-#### `test` - 测试连接
-
-测试特定提供商的连接和身份验证。
-
-```bash
-host-image-backup test <provider>
-```
-
-**示例:**
-
-```bash
-host-image-backup test oss
-host-image-backup test github
-# 或使用短别名
-hib test oss
-hib test github
-```
-
-#### `info` - 提供商信息
-
-显示特定提供商的详细信息。
-
-```bash
-host-image-backup info <provider>
-```
-
-**信息包括:**
-
-- 提供商状态
-- 配置验证
-- 连接测试结果
-- 总图像数量 (如果可用)
-
-#### `stats` - 备份统计
-
-显示备份统计和摘要信息。
-
-```bash
-host-image-backup stats [OPTIONS]
-```
-
-**选项:**
-
-```bash
--d, --detailed          显示按操作类型分类的详细统计信息
--v, --verbose           显示详细日志
-```
-
-**示例:**
-
-```bash
-# 显示基本备份统计
-host-image-backup stats
-# 或使用短别名
-hib stats
-
-# 显示包括按类型分类操作的详细统计
-host-image-backup stats --detailed
-# 或使用短别名
-hib stats -d
-```
-
-#### `history` - 备份历史
-
-显示备份操作历史记录。
-
-```bash
-host-image-backup history [OPTIONS]
-```
-
-**选项:**
-
-```bash
--p, --provider PROVIDER   按提供商筛选
--l, --limit INTEGER       限制记录数量
--v, --verbose             显示详细日志
-```
-
-**示例:**
-
-```bash
-# 显示最近的备份操作
-host-image-backup history
-# 或使用短别名
-hib history
-
-# 显示最近的备份操作并限制数量
-host-image-backup history --limit 50
-# 或使用短别名
-hib history -l 50
-
-# 按特定提供商筛选记录
-host-image-backup history --provider oss --limit 20
-```
-
-#### `tool` - 工具
-
-备份管理工具。
-
-```bash
-host-image-backup tool <action>
-```
-
-**参数:**
-
-- `<action>`: 工具操作 (duplicates, cleanup, verify)
-
-**操作:**
-
-**`duplicates`** - 识别和管理重复文件:
-- 具有相同内容的文件 (相同哈希)
-- 重复文件路径列表
-- 帮助存储优化
-
-**`cleanup`** - 清理备份文件和元数据:
-- 删除孤立文件
-- 清理旧元数据记录
-- 优化数据库存储
-
-**`verify`** - 验证备份文件完整性:
-- 检查文件哈希
-- 验证文件完整性
-- 报告不一致情况
-
-**示例:**
-
-```bash
-# 查找并显示重复文件
-host-image-backup tool duplicates
-# 或使用短别名
-hib tool duplicates
-
-# 清理备份文件
-host-image-backup tool cleanup
-# 或使用短别名
-hib tool cleanup
-
-# 验证备份文件完整性
-host-image-backup tool verify
-# 或使用短别名
-hib tool verify
-```
-
-### 全局选项
-
-所有命令都支持这些全局选项:
-
-```bash
--c, --config PATH          自定义配置文件路径
--v, --verbose              启用详细日志记录
---help                     显示帮助信息
+-c, --config PATH    自定义配置文件路径
+-v, --verbose        启用详细日志
+--help               显示帮助信息
 ```
 
 ---
 
-## 💡 使用场景和示例
+## 使用场景
 
-### 常见场景
+- 将图像从云提供商备份并迁移到本地存储
+- 聚合来自多个服务的图像
+- 自动化计划备份（cron 作业，CI/CD）
+- 存档管理以组织本地图像存储
+- 灾难恢复：维护离线副本
 
-- **📦 备份和迁移**: 将图像从云提供商镜像到本地存储
-- **🔄 多提供商聚合**: 整合来自多个服务的图像
-- **⏰ 定时备份**: 通过 cron 作业或 CI/CD 管道自动备份
-- **🗂️ 归档管理**: 创建有组织的本地图像归档
-- **🚀 灾难恢复**: 维护离线副本以确保业务连续性
-- **📤 图像上传**: 将本地图像上传到云存储提供商
-- **📊 元数据管理**: 跟踪和管理备份操作记录
-- **🔍 重复检测**: 识别和管理重复文件以优化存储
-
-### 实际示例
-
-#### 个人照片备份
+**示例：**
 
 ```bash
-# 从多个服务备份所有个人照片
-host-image-backup backup-all --output ~/PhotoBackup
-# 或使用短别名
-hib backup-all --output ~/PhotoBackup
-```
+host-image-backup backup all --output ~/PhotoBackup
+hib backup all --output ~/PhotoBackup
 
-#### 定时备份 (Cron)
+# 计划备份（cron）
+0 2 * * * /usr/local/bin/host-image-backup backup all --output /backup/images --limit 100
+0 2 * * * /usr/local/bin/hib backup all --output /backup/images --limit 100
 
-```bash
-# 添加到 crontab 进行每日备份
-0 2 * * * /usr/local/bin/host-image-backup backup-all --output /backup/images --limit 100
-# 或使用短别名
-0 2 * * * /usr/local/bin/hib backup-all --output /backup/images --limit 100
-```
-
-#### 提供商间迁移
-
-```bash
-# 步骤 1: 从旧提供商备份
-host-image-backup backup old-provider --output ./migration-temp
-# 或使用短别名
-hib backup old-provider --output ./migration-temp
-
-# 步骤 2: 上传到新提供商 (手动或基于脚本)
-# TODO
+# 提供商之间迁移
+host-image-backup backup start old-provider --output ./migration-temp
+hib backup start old-provider --output ./migration-temp
 ```
 
 ---
 
-## 🔧 故障排除
+## 故障排除
 
-### 常见问题和解决方案
+**认证错误：**
 
-#### ❌ 身份验证错误
+- 检查凭据和配置文件格式
+- 验证令牌过期和权限
+- 测试提供商：`host-image-backup provider test <provider>`
 
-**问题**: 凭证或令牌无效
+**网络问题：**
 
-**解决方案**:
+- 检查网络连接
+- 在配置中增加超时时间
+- 使用 `--verbose` 获取详细信息
+- 检查提供商服务状态
 
-- 验证配置文件格式和凭证
-- 检查令牌过期日期
-- 确保 API 访问权限正确
-- 测试单个提供商: `host-image-backup test <provider>`
+**文件系统错误：**
 
-#### ❌ 网络和连接问题
-
-**问题**: 连接超时或失败
-
-**解决方案**:
-
-- 检查互联网连接
-- 增加配置中的超时时间
-- 使用 `--verbose` 标志获取详细错误信息
-- 验证提供商服务状态
-
-#### ❌ 权限和文件系统错误
-
-**问题**: 无法写入输出目录
-
-**解决方案**:
+- 确保输出目录存在且可写
 
 ```bash
-# 创建具有适当权限的输出目录
 mkdir -p ~/backup && chmod 755 ~/backup
-
-# 为安全起见设置配置文件权限
 chmod 600 ~/.config/host-image-backup/config.yaml
 ```
 
-#### ❌ 速率限制
+**速率限制：**
 
-**问题**: 对提供商 API 的请求过多
-
-**解决方案**:
-
-- 减少配置中的 `max_concurrent_downloads`
+- 降低 [max_concurrent_downloads](file:///Volumes/Work/DevSpace/01_APP/HostImageBackup/src/host_image_backup/config.py#L29-L29)
 - 在请求之间添加延迟
-- 使用 `--limit` 选项控制下载量
-- 检查提供商特定的速率限制
+- 使用 `--limit` 控制下载量
 
-### 调试命令
+**调试：**
 
 ```bash
-# 测试特定提供商连接
-host-image-backup test oss --verbose
-# 或使用短别名
-hib test oss --verbose
-
-# 显示提供商详细信息
-host-image-backup info github
-# 或使用短别名
-hib info github
-
-# 使用最大详细程度运行备份
-host-image-backup backup imgur --verbose --limit 5
-# 或使用短别名
-hib backup imgur --verbose --limit 5
+host-image-backup provider test oss --verbose
+hib provider test oss --verbose
+host-image-backup provider info github
+hib provider info github
+host-image-backup backup start imgur --verbose --limit 5
+hib backup start imgur --verbose --limit 5
 ```
 
-### 日志分析
+**日志分析：**
 
 ```bash
-# 检查最近日志
 tail -f logs/host_image_backup_*.log
-
-# 搜索错误
 grep -i error logs/host_image_backup_*.log
-
-# 监控备份进度
 grep -E "(Successfully|Failed)" logs/host_image_backup_*.log
 ```
 
 ---
 
-## 🔒 安全和最佳实践
+## 安全性
 
-### 凭证安全
-
-- **切勿将凭证提交到版本控制**
-- **尽可能使用环境变量存储敏感数据**
-- **在配置文件上设置限制性文件权限**:
+- 切勿将凭据提交到版本控制
+- 使用环境变量存储敏感数据
+- 设置配置文件的限制性权限：
 
 ```bash
 chmod 600 ~/.config/host-image-backup/config.yaml
 ```
 
-### 环境变量支持
+**环境变量示例：**
 
 ```bash
-# 通过环境变量设置凭证
 export OSS_ACCESS_KEY_ID="your_key"
 export OSS_ACCESS_KEY_SECRET="your_secret"
 export GITHUB_TOKEN="ghp_your_token"
+```
 
-# 在配置文件中引用
+在配置中引用：
+
+```yaml
 providers:
   oss:
     access_key_id: "${OSS_ACCESS_KEY_ID}"
     access_key_secret: "${OSS_ACCESS_KEY_SECRET}"
 ```
 
-### 网络安全
-
-- 仅使用 HTTPS 终端节点 (默认启用)
-- 考虑为敏感数据使用 VPN 或私有网络
-- 监控网络流量中的异常模式
+- 使用 HTTPS 端点
+- 考虑使用 VPN/私有网络处理敏感数据
 
 ---
 
-## 🏗️ 开发和贡献
+## 开发
 
-### 开发设置
+**设置：**
 
 ```bash
-# 克隆仓库
 git clone https://github.com/WayneXuCN/HostImageBackup.git
 cd HostImageBackup
-
-# 创建虚拟环境
 python -m venv .venv
 source .venv/bin/activate  # Linux/macOS
 # .venv\Scripts\activate   # Windows
-
-# 使用 uv 安装开发依赖 (推荐)
-uv lock  # 生成锁文件
-uv sync --all-extras # 安装所有额外依赖 (dev)
-
-# 设置 pre-commit 钩子
+uv lock
+uv sync --all-extras
 pre-commit install
 ```
 
-### 运行测试
+**测试：**
 
 ```bash
-# 运行所有测试
 pytest
-
-# 运行带覆盖率的测试
 pytest --cov=src/host_image_backup
-
-# 运行特定测试文件
 pytest tests/test_config.py
-
-# 运行带详细输出的测试
 pytest -v
 ```
 
-### 代码质量
+**代码质量：**
 
 ```bash
-# 格式化代码
 ruff format src tests
-
-# 类型检查
 mypy src
-
-# 代码检查
 ruff check src tests
-
-# 运行所有质量检查
-make lint  # 或您喜欢的任务运行器
+make lint
 ```
 
-### 添加新提供商
+**添加新提供商：**
 
-1. **在 `src/host_image_backup/providers/` 中创建提供商类**
-2. **从 [BaseProvider](file:///Volumes/Work/DevSpace/01_APP/HostImageBackup/src/host_image_backup/providers/base.py#L10-L51) 实现所需方法**
-3. **在 `src/host_image_backup/config.py` 中添加配置类**
-4. **在服务和 CLI 模块中更新提供商注册表**
-5. **添加全面的测试**
-6. **更新文档**
-
-有关详细说明，请参见 [贡献指南](CONTRIBUTING.md)。
+1. 在 `src/host_image_backup/providers/` 中创建提供商类
+2. 实现来自 `BaseProvider` 的必需方法
+3. 在 `src/host_image_backup/config.py` 中添加配置类
+4. 更新服务/CLI 中的提供商注册表
+5. 添加测试
 
 ---
 
-## 🗺️ 路线图
+## 路线图
 
-### 版本 0.2.0
+**计划功能：**
 
-- [ ] **增强错误处理**: 更好的错误消息和恢复
-- [ ] **配置验证**: 实时配置验证
-- [ ] **进度持久化**: 恢复中断的备份
-- [ ] **性能优化**: 更快的并发下载
+- 增强的错误处理
+- 配置验证
+- 中断备份的进度持久化
+- 性能优化
 
-### 版本 0.3.0
+**未来版本：**
 
-- [ ] **Web UI**: 基于浏览器的配置和监控
-- [ ] **高级过滤**: 日期范围、文件类型、大小限制
-- [ ] **云集成**: 直接云到云传输
-- [ ] **增量备份**: 基于文件更改的智能备份
+- 用于配置和监控的 Web UI
+- 高级过滤（日期、类型、大小）
+- 云到云传输
+- 增量备份
 
-### 其他提供商
+**其他提供商：**
 
-- [ ] **Cloudinary**: 图像管理平台
-- [ ] **AWS S3**: 亚马逊云存储
-- [ ] **Google Drive**: 谷歌云存储  
-- [ ] **Dropbox**: 文件托管服务
-- [ ] **OneDrive**: 微软云存储
-
----
-
-## 🤝 贡献
-
-欢迎贡献！您可以通过以下方式提供帮助：
-
-- 🐛 **报告错误** 和请求功能
-- 📝 **改进文档** 和示例
-- 🔧 **添加新提供商** 或增强现有提供商
-- 🧪 **编写测试** 和提高代码覆盖率
-- 🎨 **改进用户体验** 和 CLI 界面
+- Cloudinary
+- AWS S3
+- Google Drive
+- Dropbox
+- OneDrive
 
 ---
 
-## 📄 许可证
+## 贡献
 
-本项目采用 **MIT 许可证** - 有关详细信息，请参见 [LICENSE](LICENSE) 文件。
+欢迎贡献！
 
-### 第三方许可证
+- 报告错误和请求功能
+- 改进文档和示例
+- 添加或增强提供商
+- 编写测试并提高覆盖率
+- 改进 CLI 和用户体验
 
-- 所有依赖项保留其各自的许可证
-- 有关完整依赖项列表，请参见 [pyproject.toml](pyproject.toml)
+---
+
+## 许可证
+
+MIT 许可证。详见 [LICENSE](LICENSE)。

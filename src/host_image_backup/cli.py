@@ -17,6 +17,42 @@ app = typer.Typer(
 )
 console = Console()
 
+# Create sub-apps for command groups
+config_app = typer.Typer(
+    name="config",
+    help="Configuration management commands",
+    no_args_is_help=False,
+)
+app.add_typer(config_app)
+
+provider_app = typer.Typer(
+    name="provider",
+    help="Provider management commands",
+    no_args_is_help=False,
+)
+app.add_typer(provider_app)
+
+backup_app = typer.Typer(
+    name="backup",
+    help="Backup management commands",
+    no_args_is_help=False,
+)
+app.add_typer(backup_app)
+
+upload_app = typer.Typer(
+    name="upload",
+    help="Upload management commands",
+    no_args_is_help=False,
+)
+app.add_typer(upload_app)
+
+data_app = typer.Typer(
+    name="data",
+    help="Data management commands",
+    no_args_is_help=False,
+)
+app.add_typer(data_app)
+
 
 def setup_logging(verbose: bool = False) -> None:
     """Setup logging
@@ -68,8 +104,8 @@ def main(
         console.print(ctx.get_help())
         raise typer.Exit(code=0)
 
-    # For init command, we don't need to load configuration
-    if ctx.invoked_subcommand == "init":
+    # For config init command, we don't need to load configuration
+    if ctx.invoked_subcommand == "config" and ctx.args and ctx.args[0] == "init":
         return
 
     # Load configuration for other commands
@@ -83,8 +119,8 @@ def main(
     app.verbose = verbose  # type: ignore
 
 
-@app.command()
-def init() -> None:
+@config_app.command("init")
+def config_init() -> None:
     """Initialize default configuration file"""
     # Check if config file already exists
     config_file = AppConfig.get_config_file()
@@ -116,8 +152,8 @@ def init() -> None:
     )
 
 
-@app.command()
-def backup(
+@backup_app.command("start")
+def backup_start(
     provider: str = typer.Argument(..., help="Provider name"),
     output: Path | None = typer.Option(None, "--output", "-o", help="Output directory"),
     limit: int | None = typer.Option(
@@ -173,6 +209,81 @@ def backup(
     else:
         console.print()  # Add empty line before error message
         console.print("[red]Errors occurred during backup[/red]")
+        raise typer.Exit(code=1)
+
+
+@backup_app.command("all")
+def backup_all(
+    output: Path | None = typer.Option(None, "--output", "-o", help="Output directory for all providers"),
+    limit: int | None = typer.Option(
+        None, "--limit", "-l", help="Limit download count per provider"
+    ),
+    skip_existing: bool = typer.Option(
+        True,
+        "--skip-existing/--no-skip-existing",
+        help="Skip existing files [default: skip-existing]",
+    ),
+) -> None:
+    """Backup images from all enabled providers"""
+    service: BackupService = app.service  # type: ignore
+    config: AppConfig = app.config  # type: ignore
+    verbose: bool = app.verbose  # type: ignore
+
+    # Set output directory
+    output_dir = output if output else Path(config.default_output_dir)
+
+    # Get all enabled providers
+    enabled_providers = [
+        name
+        for name, provider_config in config.providers.items()
+        if provider_config.enabled and provider_config.validate_config()
+    ]
+
+    if not enabled_providers:
+        console.print("[red]No enabled and valid providers[/red]")
+        raise typer.Exit(code=1)
+
+    providers_list = ", ".join(enabled_providers)
+    console.print(
+        Panel(
+            f"[cyan]Will backup the following providers: {providers_list}[/cyan]\n"
+            f"[blue]Output directory: {output_dir}[/blue]",
+            title="Backup All Providers",
+            border_style="blue",
+        )
+    )
+
+    success_count = 0
+
+    for provider_name in enabled_providers:
+        console.print(
+            Panel(
+                f"[cyan]Starting to backup {provider_name}...[/cyan]",
+                title=f"Provider: {provider_name}",
+                border_style="yellow",
+            )
+        )
+
+        success = service.backup_images(
+            provider_name=provider_name,
+            output_dir=output_dir,
+            limit=limit,
+            skip_existing=skip_existing,
+            verbose=verbose,
+        )
+
+        if success:
+            success_count += 1
+        else:
+            console.print(f"[red]{provider_name} backup failed[/red]")
+
+    result_text = Text(
+        f"\nBackup completed: {success_count}/{len(enabled_providers)} providers backed up successfully",
+        style="green" if success_count == len(enabled_providers) else "yellow",
+    )
+    console.print(result_text)
+
+    if success_count < len(enabled_providers):
         raise typer.Exit(code=1)
 
 
@@ -251,8 +362,8 @@ def backup_all(
         raise typer.Exit(code=1)
 
 
-@app.command("list")
-def list_providers() -> None:
+@provider_app.command("list")
+def provider_list() -> None:
     """List all available providers"""
     service: BackupService = app.service  # type: ignore
     config: AppConfig = app.config  # type: ignore
@@ -277,8 +388,8 @@ def list_providers() -> None:
     console.print(table)
 
 
-@app.command()
-def test(provider: str = typer.Argument(..., help="Provider name")) -> None:
+@provider_app.command("test")
+def provider_test(provider: str = typer.Argument(..., help="Provider name")) -> None:
     """Test connection to the specified provider"""
     service: BackupService = app.service  # type: ignore
 
@@ -296,8 +407,8 @@ def test(provider: str = typer.Argument(..., help="Provider name")) -> None:
         raise typer.Exit(code=1)
 
 
-@app.command()
-def info(provider: str = typer.Argument(..., help="Provider name")) -> None:
+@provider_app.command("info")
+def provider_info(provider: str = typer.Argument(..., help="Provider name")) -> None:
     """Show detailed information for the specified provider"""
     service: BackupService = app.service  # type: ignore
 
@@ -308,7 +419,7 @@ def info(provider: str = typer.Argument(..., help="Provider name")) -> None:
     service.show_provider_info(provider)
 
 
-@app.command()
+@upload_app.command("file")
 def upload(
     provider: str = typer.Argument(..., help="Provider name"),
     file: Path = typer.Argument(
@@ -355,7 +466,7 @@ def upload(
         raise typer.Exit(code=1)
 
 
-@app.command("upload-all")
+@upload_app.command("directory")
 def upload_all(
     provider: str = typer.Argument(..., help="Provider name"),
     directory: Path = typer.Argument(
@@ -449,7 +560,7 @@ def upload_all(
         raise typer.Exit(code=1)
 
 
-@app.command()
+@data_app.command("stats")
 def stats(
     detailed: bool = typer.Option(
         False, "--detailed", "-d", help="Show detailed statistics by operation type"
@@ -484,7 +595,7 @@ def stats(
             console.print(f"  {op_type}: {count}")
 
 
-@app.command()
+@data_app.command("history")
 def history(
     provider: str | None = typer.Option(
         None, "--provider", "-p", help="Filter results by provider"
@@ -532,55 +643,47 @@ def history(
     console.print(table)
 
 
-@app.command()
-def tool(
-    action: str = typer.Argument(..., help="Tool action: duplicates, cleanup, verify, compress"),
-) -> None:
-    """Utility tools for backup management"""
+@data_app.command("duplicates")
+def duplicates() -> None:
+    """Find and display duplicate files"""
     service: BackupService = app.service  # type: ignore
 
-    if action == "duplicates":
-        duplicates = service.metadata_manager.find_duplicates()
+    duplicates = service.metadata_manager.find_duplicates()
 
-        if not duplicates:
-            console.print("[green]No duplicate files found[/green]")
-            return
+    if not duplicates:
+        console.print("[green]No duplicate files found[/green]")
+        return
 
-        table = Table(
-            title="[bold]Duplicate Files[/bold]",
-            show_header=True,
-            header_style="bold blue",
-        )
-        table.add_column("Hash", style="cyan")
-        table.add_column("Files", style="magenta")
+    table = Table(
+        title="[bold]Duplicate Files[/bold]",
+        show_header=True,
+        header_style="bold blue",
+    )
+    table.add_column("Hash", style="cyan")
+    table.add_column("Files", style="magenta")
 
-        for file_hash, files in list(duplicates.items())[
-            :10
-        ]:  # Show first 10 duplicates
-            file_names = [Path(f).name for f in files]
-            table.add_row(file_hash[:8] + "...", "\n".join(file_names))
+    for file_hash, files in list(duplicates.items())[
+        :10
+    ]:  # Show first 10 duplicates
+        file_names = [Path(f).name for f in files]
+        table.add_row(file_hash[:8] + "...", "\n".join(file_names))
 
-        console.print(table)
-
-    elif action == "cleanup":
-        # TODO: Implement cleanup functionality
-        console.print("[yellow]Cleanup functionality not yet implemented[/yellow]")
-
-    elif action == "verify":
-        # TODO: Implement verification functionality
-        console.print("[yellow]Verification functionality not yet implemented[/yellow]")
-
-    elif action == "compress":
-        # This will be handled by the compress command below
-        console.print("[yellow]Please use 'hib compress' command with options[/yellow]")
-
-    else:
-        console.print(f"[red]Unknown tool action: {action}[/red]")
-        console.print("[yellow]Available actions: duplicates, cleanup, verify, compress[/yellow]")
-        raise typer.Exit(code=1)
+    console.print(table)
 
 
-@app.command()
+@data_app.command("cleanup")
+def cleanup() -> None:
+    """Clean up backup files and metadata"""
+    console.print("[yellow]Cleanup functionality not yet implemented[/yellow]")
+
+
+@data_app.command("verify")
+def verify() -> None:
+    """Verify backup file integrity"""
+    console.print("[yellow]Verification functionality not yet implemented[/yellow]")
+
+
+@data_app.command("compress")
 def compress(
     input_path: Path = typer.Argument(
         ...,
