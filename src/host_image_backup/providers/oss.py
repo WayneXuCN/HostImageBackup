@@ -6,7 +6,13 @@ import oss2
 from loguru import logger
 
 from ..config import OSSConfig
-from .base import BaseProvider, ImageInfo, SUPPORTED_IMAGE_EXTENSIONS
+from .base import (
+    SUPPORTED_IMAGE_EXTENSIONS,
+    BaseProvider,
+    FileInfo,
+    ImageInfo,
+    UploadResult,
+)
 
 
 class OSSProvider(BaseProvider):
@@ -83,7 +89,9 @@ class OSSProvider(BaseProvider):
                 if obj.last_modified:
                     if hasattr(obj.last_modified, "isoformat"):
                         # It's a datetime object
-                        created_at = obj.last_modified.replace(tzinfo=timezone.utc).isoformat()
+                        created_at = obj.last_modified.replace(
+                            tzinfo=timezone.utc
+                        ).isoformat()
                     elif isinstance(obj.last_modified, int | float):
                         # It's a timestamp, convert it to ISO format
                         created_at = datetime.fromtimestamp(
@@ -162,3 +170,113 @@ class OSSProvider(BaseProvider):
         except Exception as e:
             self.logger.warning(f"Failed to get total number of OSS images: {e}")
             return None
+
+    def upload_image(
+        self, file_path: Path, remote_path: str | None = None
+    ) -> UploadResult:
+        """Upload image to OSS
+
+        Parameters
+        ----------
+        file_path : Path
+            The local file path to upload.
+        remote_path : str, optional
+            The remote path where the image should be saved.
+            If None, use the original filename.
+
+        Returns
+        -------
+        UploadResult
+            The upload result containing success status and metadata.
+        """
+        try:
+            # Determine remote path
+            if remote_path is None:
+                remote_path = self.config.prefix + file_path.name
+            elif self.config.prefix and not remote_path.startswith(self.config.prefix):
+                remote_path = self.config.prefix + remote_path
+
+            # Check if file exists
+            if not file_path.exists():
+                return UploadResult(
+                    success=False, message=f"File not found: {file_path}"
+                )
+
+            # Upload file
+            result = self.bucket.put_object_from_file(remote_path, str(file_path))
+
+            # Generate URL
+            url = f"https://{self.config.bucket}.{self.config.endpoint}/{remote_path}"
+
+            return UploadResult(
+                success=True,
+                url=url,
+                message=f"Successfully uploaded {file_path.name} to {remote_path}",
+                metadata={
+                    "key": remote_path,
+                    "etag": result.etag,
+                    "size": file_path.stat().st_size,
+                    "last_modified": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+
+        except Exception as e:
+            self.logger.error(f"Failed to upload image {file_path}: {e}")
+            return UploadResult(success=False, message=f"Upload failed: {str(e)}")
+
+    def get_file_info(self, remote_path: str) -> FileInfo | None:
+        """Get file information from OSS
+
+        Parameters
+        ----------
+        remote_path : str
+            The remote file path.
+
+        Returns
+        -------
+        FileInfo or None
+            The file information, or None if not found.
+        """
+        try:
+            # Get object metadata
+            result = self.bucket.head_object(remote_path)
+
+            # Parse last modified time
+            last_modified = None
+            if hasattr(result.last_modified, "timestamp"):
+                last_modified = datetime.fromtimestamp(result.last_modified.timestamp())
+            elif isinstance(result.last_modified, int | float):
+                last_modified = datetime.fromtimestamp(result.last_modified)
+
+            return FileInfo(
+                path=remote_path,
+                filename=Path(remote_path).name,
+                size=result.content_length,
+                hash=result.etag.strip('"'),  # Remove quotes from ETag
+                modified_time=last_modified or datetime.now(),
+                created_time=last_modified or datetime.now(),
+            )
+
+        except Exception as e:
+            self.logger.error(f"Failed to get file info for {remote_path}: {e}")
+            return None
+
+    def delete_image(self, remote_path: str) -> bool:
+        """Delete image from OSS
+
+        Parameters
+        ----------
+        remote_path : str
+            The remote file path to delete.
+
+        Returns
+        -------
+        bool
+            True if deletion was successful, False otherwise.
+        """
+        try:
+            self.bucket.delete_object(remote_path)
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to delete image {remote_path}: {e}")
+            return False

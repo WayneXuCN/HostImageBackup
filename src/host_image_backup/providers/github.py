@@ -10,8 +10,8 @@ import requests
 from loguru import logger
 
 from ..config import GitHubConfig
-from .base import BaseProvider, ImageInfo, SUPPORTED_IMAGE_EXTENSIONS
- 
+from .base import SUPPORTED_IMAGE_EXTENSIONS, BaseProvider, ImageInfo
+
 
 class GitHubProvider(BaseProvider):
     """GitHub Provider"""

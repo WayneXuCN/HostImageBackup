@@ -18,8 +18,7 @@ class TestImageInfo:
     def test_image_info_creation(self):
         """Test creating ImageInfo instance."""
         image_info = ImageInfo(
-            url="https://example.com/image.jpg",
-            filename="image.jpg"
+            url="https://example.com/image.jpg", filename="image.jpg"
         )
         assert image_info.url == "https://example.com/image.jpg"
         assert image_info.filename == "image.jpg"
@@ -37,7 +36,7 @@ class TestImageInfo:
             size=1024,
             created_at="2023-01-01T00:00:00Z",
             tags=["photo", "landscape"],
-            metadata=metadata
+            metadata=metadata,
         )
         assert image_info.size == 1024
         assert image_info.created_at == "2023-01-01T00:00:00Z"

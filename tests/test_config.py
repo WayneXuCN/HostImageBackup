@@ -2,7 +2,14 @@
 
 import pytest
 
-from src.host_image_backup.config import AppConfig, COSConfig, GitHubConfig, ImgurConfig, OSSConfig, SMSConfig
+from src.host_image_backup.config import (
+    AppConfig,
+    COSConfig,
+    GitHubConfig,
+    ImgurConfig,
+    OSSConfig,
+    SMSConfig,
+)
 
 
 class TestProviderConfigs:
@@ -16,7 +23,7 @@ class TestProviderConfigs:
             access_key_id="test_key",
             access_key_secret="test_secret",
             bucket="test_bucket",
-            endpoint="oss-cn-hangzhou.aliyuncs.com"
+            endpoint="oss-cn-hangzhou.aliyuncs.com",
         )
         assert valid_config.validate_config() is True
 
@@ -26,11 +33,7 @@ class TestProviderConfigs:
 
         # Invalid configuration - empty strings
         empty_config = OSSConfig(
-            name="oss",
-            access_key_id="",
-            access_key_secret="",
-            bucket="",
-            endpoint=""
+            name="oss", access_key_id="", access_key_secret="", bucket="", endpoint=""
         )
         assert empty_config.validate_config() is False
 
@@ -42,7 +45,7 @@ class TestProviderConfigs:
             secret_id="test_id",
             secret_key="test_key",
             bucket="test_bucket",
-            region="ap-guangzhou"
+            region="ap-guangzhou",
         )
         assert valid_config.validate_config() is True
 
@@ -67,7 +70,7 @@ class TestProviderConfigs:
             name="imgur",
             client_id="test_id",
             client_secret="test_secret",
-            access_token="test_token"
+            access_token="test_token",
         )
         assert valid_config.validate_config() is True
 
@@ -79,10 +82,7 @@ class TestProviderConfigs:
         """Test GitHub configuration validation."""
         # Valid configuration
         valid_config = GitHubConfig(
-            name="github",
-            token="ghp_test_token",
-            owner="test_owner",
-            repo="test_repo"
+            name="github", token="ghp_test_token", owner="test_owner", repo="test_repo"
         )
         assert valid_config.validate_config() is True
 
@@ -108,7 +108,15 @@ class TestAppConfig:
     def test_log_level_validation(self):
         """Test log level validation."""
         # Valid log levels
-        valid_levels = ["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"]
+        valid_levels = [
+            "TRACE",
+            "DEBUG",
+            "INFO",
+            "SUCCESS",
+            "WARNING",
+            "ERROR",
+            "CRITICAL",
+        ]
         for level in valid_levels:
             config = AppConfig(log_level=level)
             assert config.log_level == level
@@ -125,10 +133,7 @@ class TestAppConfig:
         """Test configuration constraints."""
         # Valid ranges
         config = AppConfig(
-            max_concurrent_downloads=10,
-            timeout=60,
-            retry_count=5,
-            chunk_size=4096
+            max_concurrent_downloads=10, timeout=60, retry_count=5, chunk_size=4096
         )
         assert config.max_concurrent_downloads == 10
         assert config.timeout == 60

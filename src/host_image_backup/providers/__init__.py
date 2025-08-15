@@ -1,4 +1,4 @@
-from .base import BaseProvider, ImageInfo, SUPPORTED_IMAGE_EXTENSIONS
+from .base import SUPPORTED_IMAGE_EXTENSIONS, BaseProvider, ImageInfo
 from .cos import COSProvider
 from .github import GitHubProvider
 from .imgur import ImgurProvider

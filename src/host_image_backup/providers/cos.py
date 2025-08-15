@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -6,7 +7,13 @@ from loguru import logger
 from qcloud_cos import CosConfig, CosS3Client
 
 from ..config import COSConfig
-from .base import BaseProvider, ImageInfo, SUPPORTED_IMAGE_EXTENSIONS
+from .base import (
+    SUPPORTED_IMAGE_EXTENSIONS,
+    BaseProvider,
+    FileInfo,
+    ImageInfo,
+    UploadResult,
+)
 
 
 class COSProvider(BaseProvider):
@@ -213,3 +220,125 @@ class COSProvider(BaseProvider):
         except Exception as e:
             self.logger.warning(f"Failed to get total number of COS images: {e}")
             return None
+
+    def upload_image(
+        self, file_path: Path, remote_path: str | None = None
+    ) -> UploadResult:
+        """Upload image to COS
+
+        Parameters
+        ----------
+        file_path : Path
+            The local file path to upload.
+        remote_path : str, optional
+            The remote path where the image should be saved.
+            If None, use the original filename.
+
+        Returns
+        -------
+        UploadResult
+            The upload result containing success status and metadata.
+        """
+        try:
+            # Determine remote path
+            if remote_path is None:
+                remote_path = self.config.prefix + file_path.name
+            elif self.config.prefix and not remote_path.startswith(self.config.prefix):
+                remote_path = self.config.prefix + remote_path
+
+            # Check if file exists
+            if not file_path.exists():
+                return UploadResult(
+                    success=False, message=f"File not found: {file_path}"
+                )
+
+            # Upload file
+            with open(file_path, "rb") as f:
+                response = self.client.put_object(
+                    Bucket=self.config.bucket, Key=remote_path, Body=f
+                )
+
+            # Generate URL
+            url = f"https://{self.config.bucket}.cos.{self.config.region}.myqcloud.com/{remote_path}"
+
+            return UploadResult(
+                success=True,
+                url=url,
+                message=f"Successfully uploaded {file_path.name} to {remote_path}",
+                metadata={
+                    "key": remote_path,
+                    "etag": response.get("ETag", "").strip('"'),
+                    "size": file_path.stat().st_size,
+                    "last_modified": datetime.now().isoformat(),
+                },
+            )
+
+        except Exception as e:
+            self.logger.error(f"Failed to upload image {file_path}: {e}")
+            return UploadResult(success=False, message=f"Upload failed: {str(e)}")
+
+    def get_file_info(self, remote_path: str) -> FileInfo | None:
+        """Get file information from COS
+
+        Parameters
+        ----------
+        remote_path : str
+            The remote file path.
+
+        Returns
+        -------
+        FileInfo or None
+            The file information, or None if not found.
+        """
+        try:
+            # Get object metadata
+            response = self.client.head_object(
+                Bucket=self.config.bucket, Key=remote_path
+            )
+
+            # Parse last modified time
+            last_modified = None
+            last_modified_str = response.get("LastModified")
+            if last_modified_str:
+                try:
+                    # COS returns ISO format string
+                    last_modified = datetime.fromisoformat(
+                        last_modified_str.replace("Z", "+00:00")
+                    )
+                except ValueError:
+                    last_modified = datetime.now()
+
+            return FileInfo(
+                path=remote_path,
+                filename=Path(remote_path).name,
+                size=response.get("ContentLength", 0),
+                hash=response.get("ETag", "").strip('"'),
+                modified_time=last_modified or datetime.now(),
+                created_time=last_modified or datetime.now(),
+            )
+
+        except Exception as e:
+            self.logger.error(f"Failed to get file info for {remote_path}: {e}")
+            return None
+
+    def delete_image(self, remote_path: str) -> bool:
+        """Delete image from COS
+
+        Parameters
+        ----------
+        remote_path : str
+            The remote file path to delete.
+
+        Returns
+        -------
+        bool
+            True if deletion was successful, False otherwise.
+        """
+        try:
+            response = self.client.delete_object(
+                Bucket=self.config.bucket, Key=remote_path
+            )
+            return response["ResponseMetadata"]["HTTPStatusCode"] == 204
+        except Exception as e:
+            self.logger.error(f"Failed to delete image {remote_path}: {e}")
+            return False

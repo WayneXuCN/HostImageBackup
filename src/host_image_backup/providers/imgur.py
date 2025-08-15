@@ -6,7 +6,7 @@ import requests
 from loguru import logger
 
 from ..config import ImgurConfig
-from .base import BaseProvider, ImageInfo, SUPPORTED_IMAGE_EXTENSIONS
+from .base import SUPPORTED_IMAGE_EXTENSIONS, BaseProvider, ImageInfo
 
 
 class ImgurProvider(BaseProvider):
@@ -98,10 +98,16 @@ class ImgurProvider(BaseProvider):
 
                     # Get filename (from title or extract from link)
                     filename = img.get("title") or Path(url).name
-                    if not any(filename.lower().endswith(ext) for ext in SUPPORTED_IMAGE_EXTENSIONS):
+                    if not any(
+                        filename.lower().endswith(ext)
+                        for ext in SUPPORTED_IMAGE_EXTENSIONS
+                    ):
                         # Try to get file extension from URL
                         url_filename = Path(url).name
-                        if any(url_filename.lower().endswith(ext) for ext in SUPPORTED_IMAGE_EXTENSIONS):
+                        if any(
+                            url_filename.lower().endswith(ext)
+                            for ext in SUPPORTED_IMAGE_EXTENSIONS
+                        ):
                             filename = url_filename
                         else:
                             # Default to jpg if we can't determine extension

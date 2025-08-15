@@ -14,6 +14,7 @@ from rich.progress import (
 from rich.table import Table
 
 from .config import AppConfig
+from .metadata import MetadataManager
 from .providers import BaseProvider, ImageInfo
 from .providers.cos import COSProvider
 from .providers.github import GitHubProvider
@@ -29,6 +30,9 @@ class BackupService:
         self.config = config
         self.console = Console()
         self.logger = logger
+
+        # Initialize metadata manager
+        self.metadata_manager = MetadataManager()
 
         # Initialize provider mapping
         self.provider_classes = {
@@ -143,7 +147,8 @@ class BackupService:
                 with concurrent.futures.ThreadPoolExecutor(
                     max_workers=self.config.max_concurrent_downloads
                 ) as executor:
-                    futures = []
+                    # Store image info and output file mapping
+                    download_tasks = []
 
                     for image_info in provider.list_images(limit=limit):
                         # Build output file path
@@ -154,6 +159,17 @@ class BackupService:
                         # Skip if file exists and skip_existing is True
                         if skip_existing and output_file.exists():
                             skip_count += 1
+                            # Record skipped operation in metadata
+                            self.metadata_manager.record_backup(
+                                operation="download",
+                                provider=provider_name,
+                                file_path=output_file,
+                                remote_path=image_info.url or image_info.filename,
+                                file_hash="",  # No hash for skipped files
+                                file_size=0,   # No size for skipped files
+                                status="skipped",
+                                message="File already exists and skip_existing is True",
+                            )
                             progress.update(backup_task, advance=1)
                             if verbose:
                                 self.console.print(
@@ -169,18 +185,79 @@ class BackupService:
                             output_file,
                             verbose,
                         )
-                        futures.append(future)
+                        download_tasks.append((future, image_info, output_file))
 
                     # Wait for all downloads to complete
-                    for future in concurrent.futures.as_completed(futures):
+                    for future, image_info, output_file in download_tasks:
                         try:
                             result = future.result()
                             if result:
                                 success_count += 1
+                                # Record successful download in metadata
+                                file_hash = self.metadata_manager.get_file_hash(output_file) if output_file.exists() else ""
+                                file_size = output_file.stat().st_size if output_file.exists() else 0
+                                self.metadata_manager.record_backup(
+                                    operation="download",
+                                    provider=provider_name,
+                                    file_path=output_file,
+                                    remote_path=image_info.url or image_info.filename,
+                                    file_hash=file_hash,
+                                    file_size=file_size,
+                                    status="success",
+                                    message="Download completed successfully",
+                                )
+                                
+                                # Update image metadata for statistics
+                                if output_file.exists():
+                                    try:
+                                        # Try to get image dimensions (optional)
+                                        width = None
+                                        height = None
+                                        format = None
+                                        try:
+                                            from PIL import Image
+                                            with Image.open(output_file) as img:
+                                                width, height = img.size
+                                                format = img.format
+                                        except:
+                                            pass  # Ignore if PIL is not available or fails
+                                        
+                                        self.metadata_manager.update_file_metadata(
+                                            file_path=output_file,
+                                            file_hash=file_hash,
+                                            file_size=file_size,
+                                            width=width,
+                                            height=height,
+                                            format=format,
+                                        )
+                                    except Exception as e:
+                                        self.logger.warning(f"Failed to update image metadata for {output_file}: {e}")
                             else:
                                 error_count += 1
+                                # Record failed download in metadata
+                                self.metadata_manager.record_backup(
+                                    operation="download",
+                                    provider=provider_name,
+                                    file_path=output_file,
+                                    remote_path=image_info.url or image_info.filename,
+                                    file_hash="",
+                                    file_size=0,
+                                    status="failed",
+                                    message="Download failed",
+                                )
                         except Exception as e:
                             error_count += 1
+                            # Record failed download in metadata
+                            self.metadata_manager.record_backup(
+                                operation="download",
+                                provider=provider_name,
+                                file_path=output_file,
+                                remote_path=image_info.url or image_info.filename,
+                                file_hash="",
+                                file_size=0,
+                                status="failed",
+                                message=f"Download exception: {str(e)}",
+                            )
                             if verbose:
                                 self.logger.error(f"Download task error: {e}")
 
@@ -327,3 +404,209 @@ class BackupService:
         )
 
         self.console.print(table)
+
+    def upload_image(
+        self,
+        provider_name: str,
+        file_path: Path,
+        remote_path: str | None = None,
+        verbose: bool = False,
+    ) -> bool:
+        """Upload image to provider
+
+        Parameters
+        ----------
+        provider_name : str
+            Provider name.
+        file_path : Path
+            Local file path to upload.
+        remote_path : str, optional
+            Remote path for the file.
+        verbose : bool, default=False
+            Show detailed logs.
+
+        Returns
+        -------
+        bool
+            True if upload was successful, False otherwise.
+        """
+        provider = self.get_provider(provider_name)
+        if not provider:
+            return False
+
+        try:
+            # Check if file exists
+            if not file_path.exists():
+                self.console.print(f"[red]File not found: {file_path}[/red]")
+                return False
+
+            # Calculate file hash
+            file_hash = self.metadata_manager.get_file_hash(file_path)
+            file_size = file_path.stat().st_size
+
+            self.console.print(
+                Panel(
+                    f"[cyan]Uploading {file_path.name} to {provider_name}[/cyan]\n"
+                    f"[blue]File size: {file_size:,} bytes[/blue]",
+                    title="Upload Started",
+                    border_style="blue",
+                )
+            )
+
+            # Upload image
+            result = provider.upload_image(file_path, remote_path)
+
+            # Record operation in metadata
+            if result.success:
+                self.metadata_manager.record_backup(
+                    operation="upload",
+                    provider=provider_name,
+                    file_path=file_path,
+                    remote_path=remote_path or file_path.name,
+                    file_hash=file_hash,
+                    file_size=file_size,
+                    status="success",
+                    message=result.message,
+                    metadata=result.metadata,
+                )
+
+                # Show success message
+                self.console.print()
+                self.console.print("[green]✓ Upload successful![/green]")
+                if result.url:
+                    self.console.print(f"[blue]URL: {result.url}[/blue]")
+
+                return True
+            else:
+                # Record failed operation
+                self.metadata_manager.record_backup(
+                    operation="upload",
+                    provider=provider_name,
+                    file_path=file_path,
+                    remote_path=remote_path or file_path.name,
+                    file_hash=file_hash,
+                    file_size=file_size,
+                    status="failed",
+                    message=result.message,
+                )
+
+                self.console.print()
+                self.console.print(f"[red]✗ Upload failed: {result.message}[/red]")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"Upload process error: {e}")
+            self.console.print(f"[red]Upload error: {str(e)}[/red]")
+            return False
+
+    def upload_batch(
+        self,
+        provider_name: str,
+        file_paths: list[Path],
+        remote_prefix: str | None = None,
+        verbose: bool = False,
+    ) -> bool:
+        """Upload multiple images to provider
+
+        Parameters
+        ----------
+        provider_name : str
+            Provider name.
+        file_paths : list[Path]
+            List of local file paths to upload.
+        remote_prefix : str, optional
+            Remote prefix for all files.
+        verbose : bool, default=False
+            Show detailed logs.
+
+        Returns
+        -------
+        bool
+            True if all uploads were successful, False otherwise.
+        """
+        provider = self.get_provider(provider_name)
+        if not provider:
+            return False
+
+        total_files = len(file_paths)
+        success_count = 0
+        error_count = 0
+
+        self.console.print(
+            Panel(
+                f"[cyan]Starting batch upload to {provider_name}[/cyan]\n"
+                f"[blue]Total files: {total_files}[/blue]",
+                title="Batch Upload",
+                border_style="blue",
+            )
+        )
+
+        # Create progress bar
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TextColumn("[progress.percentage]{task.completed}/{task.total} files"),
+        ) as progress:
+            upload_task = progress.add_task(
+                f"[cyan]Uploading to {provider_name}[/cyan]",
+                total=total_files,
+            )
+
+            for file_path in file_paths:
+                try:
+                    # Determine remote path
+                    remote_path = None
+                    if remote_prefix:
+                        remote_path = f"{remote_prefix}{file_path.name}"
+
+                    # Upload single file
+                    if self.upload_image(
+                        provider_name, file_path, remote_path, verbose
+                    ):
+                        success_count += 1
+                    else:
+                        error_count += 1
+
+                except Exception as e:
+                    error_count += 1
+                    self.logger.error(f"Batch upload error for {file_path}: {e}")
+
+                progress.update(upload_task, advance=1)
+
+        # Show summary
+        self.console.print()
+        self._show_upload_summary(
+            provider_name, success_count, error_count, total_files
+        )
+
+        return error_count == 0
+
+    def _show_upload_summary(
+        self, provider_name: str, success: int, error: int, total: int
+    ) -> None:
+        """Show upload summary"""
+        table = Table(
+            title=f"[bold]{provider_name} Upload Summary[/bold]",
+            show_header=True,
+            header_style="bold magenta",
+        )
+        table.add_column("Item", style="cyan", no_wrap=True)
+        table.add_column("Count", style="magenta")
+
+        table.add_row("Successfully Uploaded", str(success))
+        table.add_row("Failed Uploads", str(error))
+        table.add_row("Total Files", str(total))
+
+        self.console.print(table)
+
+        if error > 0:
+            self.console.print()
+            self.console.print(
+                Panel(
+                    f"[yellow]There are {error} failed uploads, please check the logs for details[/yellow]",
+                    title="[yellow]Warning[/yellow]",
+                    border_style="yellow",
+                )
+            )

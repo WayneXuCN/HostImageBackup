@@ -30,18 +30,22 @@
 - 🔄 **Resume Support** - Continue interrupted transfers seamlessly
 - 📝 **Comprehensive Logging** - Detailed operation logs
 - 🧪 **Well Tested** - Comprehensive test coverage for reliability
+- 🚀 **Upload Support** - Upload images to cloud storage providers
+- 📈 **Metadata Management** - Track backup operations and file information
+- 📦 **Batch Operations** - Upload multiple files at once
+- 🔍 **Duplicate Detection** - Find and manage duplicate files
 
 ---
 
 ## 🚀 Supported Providers
 
-| Provider   | Features                         | Notes                            |
-|------------|----------------------------------|----------------------------------|
-| **OSS**    | ✅ List, backup, resume, skip   | Requires Aliyun credentials      |
-| **COS**    | ✅ List, backup, resume, skip   | Requires Tencent credentials     |
-| **SM.MS**  | ✅ List, backup                 | Public API, rate limits apply   |
-| **Imgur**  | ✅ List, backup                 | Requires Imgur client ID/secret |
-| **GitHub** | ✅ List, backup                 | Requires GitHub token & access  |
+| Provider   | Features                                    | Notes                            |
+|------------|---------------------------------------------|----------------------------------|
+| **OSS**    | ✅ List, backup, upload, delete, file info  | Requires Aliyun credentials      |
+| **COS**    | ✅ List, backup, upload, delete, file info  | Requires Tencent credentials     |
+| **SM.MS**  | ✅ List, backup                            | Public API, rate limits apply   |
+| **Imgur**  | ✅ List, backup                            | Requires Imgur client ID/secret |
+| **GitHub** | ✅ List, backup                            | Requires GitHub token & access  |
 
 ---
 
@@ -213,14 +217,19 @@ hib backup-all --output ./full-backup
 
 ### Command Reference
 
-| Command         | Description                           | Aliases |
-|-----------------|---------------------------------------|---------|
-| `init`          | Initialize default configuration file | -       |
-| `backup`        | Backup images from specific provider  | -       |
-| `backup-all`    | Backup from all enabled providers     | -       |
-| `list`          | List all available providers          | `list-providers` |
-| `test`          | Test provider connection              | -       |
-| `info`          | Show detailed provider information    | -       |
+| Command         | Description                                      | Aliases |
+|-----------------|--------------------------------------------------|---------|
+| `init`          | Initialize default configuration file            | -       |
+| `backup`        | Backup images from specific provider             | -       |
+| `backup-all`    | Backup from all enabled providers                | -       |
+| `upload`        | Upload a single image to provider                | -       |
+| `upload-all`    | Upload multiple images from directory to provider| -       |
+| `stats`         | Show backup statistics and summary               | -       |
+| `history`       | Show backup operation history records            | -       |
+| `tool`          | Utility tools for backup management              | -       |
+| `list`          | List all available providers                     | `list-providers` |
+| `test`          | Test connection to provider                      | -       |
+| `info`          | Show detailed provider information               | -       |
 
 ### Detailed Command Usage
 
@@ -356,6 +365,116 @@ host-image-backup info <provider>
 - Configuration validation
 - Connection test results
 - Total image count (if available)
+
+#### `stats` - Backup Statistics
+
+Show backup statistics and summary information.
+
+```bash
+host-image-backup stats [OPTIONS]
+```
+
+**Options:**
+
+```bash
+-d, --detailed          Show detailed statistics by operation type
+-v, --verbose           Show detailed logs
+```
+
+**Examples:**
+
+```bash
+# Show basic backup statistics
+host-image-backup stats
+# Or use short alias
+hib stats
+
+# Show detailed statistics including operations by type
+host-image-backup stats --detailed
+# Or use short alias
+hib stats -d
+```
+
+#### `history` - Backup History
+
+Show backup operation history records.
+
+```bash
+host-image-backup history [OPTIONS]
+```
+
+**Options:**
+
+```bash
+-p, --provider PROVIDER   Filter by provider
+-l, --limit INTEGER       Limit number of records
+-v, --verbose             Show detailed logs
+```
+
+**Examples:**
+
+```bash
+# Show recent backup operations
+host-image-backup history
+# Or use short alias
+hib history
+
+# Show recent backup operations with limit
+host-image-backup history --limit 50
+# Or use short alias
+hib history -l 50
+
+# Filter records by specific provider
+host-image-backup history --provider oss --limit 20
+```
+
+#### `tool` - Utility Tools
+
+Utility tools for backup management.
+
+```bash
+host-image-backup tool <action>
+```
+
+**Arguments:**
+
+- `<action>`: Tool action (duplicates, cleanup, verify)
+
+**Actions:**
+
+**`duplicates`** - Identify and manage duplicate files:
+- Files with identical content (same hash)
+- List of duplicate file paths
+- Helps with storage optimization
+
+**`cleanup`** - Clean up backup files and metadata:
+- Remove orphaned files
+- Clean up old metadata records
+- Optimize database storage
+
+**`verify`** - Verify backup file integrity:
+- Check file hashes
+- Validate file integrity
+- Report inconsistencies
+
+**Examples:**
+
+```bash
+# Find and display duplicate files
+host-image-backup tool duplicates
+# Or use short alias
+hib tool duplicates
+
+# Clean up backup files
+host-image-backup tool cleanup
+# Or use short alias
+hib tool cleanup
+
+# Verify backup file integrity
+host-image-backup tool verify
+# Or use short alias
+hib tool verify
+```
 
 ### Global Options
 
@@ -612,9 +731,9 @@ See [Contributing Guide](CONTRIBUTING.md) for detailed instructions.
 ### Version 0.3.0
 
 - [ ] **Web UI**: Browser-based configuration and monitoring
-- [ ] **Database Support**: SQLite for backup metadata
 - [ ] **Advanced Filtering**: Date ranges, file types, size limits
 - [ ] **Cloud Integration**: Direct cloud-to-cloud transfers
+- [ ] **Incremental Backups**: Smart backup based on file changes
 
 ### Additional Providers
 
