@@ -14,6 +14,7 @@ class TestMetadataManager:
     def test_init_database(self, tmp_path):
         """Test database initialization"""
         db_path = tmp_path / "test.db"
+        manager = MetadataManager(db_path)
 
         # Database should be created
         assert db_path.exists()

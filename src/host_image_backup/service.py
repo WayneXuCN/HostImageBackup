@@ -4,14 +4,6 @@ from pathlib import Path
 from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import (
-    BarColumn,
-    Progress,
-    SpinnerColumn,
-    TaskProgressColumn,
-    TextColumn,
-)
-from rich.table import Table
 
 from .config import AppConfig
 from .metadata import MetadataManager
@@ -126,21 +118,12 @@ class BackupService:
             error_count = 0
             skip_count = 0
 
-            # Create a custom progress bar with rich
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-                TextColumn(
-                    "[progress.percentage]{task.completed}"
-                    + ("/{task.total}" if total_count else "")
-                    + " images"
-                ),
-            ) as progress:
+            # Create a custom progress bar with our consistent styling
+            from .styles import create_backup_progress_bar
+            with create_backup_progress_bar() as progress:
                 # If we don't know the total, use an indefinite progress bar
                 backup_task = progress.add_task(
-                    f"[cyan]Backing up {provider_name}[/cyan]",
+                    f"Backing up {provider_name}",
                     total=total_count if total_count else None,
                 )
 
@@ -331,45 +314,22 @@ class BackupService:
         self, provider_name: str, success: int, error: int, skip: int
     ) -> None:
         """Show backup summary"""
-        table = Table(
-            title=f"[bold]{provider_name} Backup Summary[/bold]",
-            show_header=True,
-            header_style="bold magenta",
-        )
-        table.add_column("Item", style="cyan", no_wrap=True)
-        table.add_column("Count", style="magenta")
-
-        table.add_row("Successfully Downloaded", str(success))
-        table.add_row("Failed Downloads", str(error))
-        table.add_row("Skipped Files", str(skip))
-        table.add_row("Total", str(success + error + skip))
-
-        self.console.print(table)
-
-        if error > 0:
-            self.console.print()  # Add empty line before warning
-            self.console.print(
-                Panel(
-                    f"[yellow]There are {error} failed downloads, please check network connection or provider configuration[/yellow]",
-                    title="[yellow]Warning[/yellow]",
-                    border_style="yellow",
-                )
-            )
+        from .styles import print_backup_summary
+        print_backup_summary(provider_name, success, error, skip)
 
     def show_provider_info(self, provider_name: str) -> None:
         """Show provider information"""
         provider = self.get_provider(provider_name)
         if not provider:
-            self.console.print(
-                f"[red]Cannot get provider: {provider_name}[/red]", style="red"
-            )
+            from .styles import print_error
+            print_error(f"Cannot get provider: {provider_name}")
             return
 
         # Test connection
         connection_status = (
-            "[green]Normal[/green]"
+            "Normal"
             if provider.test_connection()
-            else "[red]Failed[/red]"
+            else "Failed"
         )
 
         # Get image count
@@ -382,29 +342,21 @@ class BackupService:
             self.logger.error(f"Error getting image count for {provider_name}: {e}")
             count_text = "Failed to get"
 
-        table = Table(
-            title=f"[bold]{provider_name.upper()} Provider Information[/bold]",
-            show_header=True,
-            header_style="bold blue",
-        )
-        table.add_column("Property", style="cyan")
-        table.add_column("Value", style="magenta")
-
-        table.add_row("Name", provider_name.upper())
-        table.add_row(
-            "Status",
-            "[green]Enabled[/green]"
-            if provider.is_enabled()
-            else "[red]Disabled[/red]",
-        )
-        table.add_row("Connection Test", connection_status)
-        table.add_row("Image Count", count_text)
-        table.add_row(
-            "Configuration Valid",
-            "[green]Yes[/green]" if provider.validate_config() else "[red]No[/red]",
-        )
-
-        self.console.print(table)
+        from .styles import print_header, console
+        print_header(f"{provider_name.upper()} Provider Information")
+        console.print()
+        
+        console.print(f"[cyan]Name:[/cyan] {provider_name.upper()}")
+        status_text = "Enabled" if provider.is_enabled() else "Disabled"
+        status_color = "green" if provider.is_enabled() else "red"
+        console.print(f"[cyan]Status:[/cyan] [{status_color}]{status_text}[/{status_color}]")
+        connection_color = "green" if connection_status == "Normal" else "red"
+        console.print(f"[cyan]Connection Test:[/cyan] [{connection_color}]{connection_status}[/{connection_color}]")
+        console.print(f"[cyan]Image Count:[/cyan] {count_text}")
+        config_valid = "Yes" if provider.validate_config() else "No"
+        config_color = "green" if provider.validate_config() else "red"
+        console.print(f"[cyan]Configuration Valid:[/cyan] [{config_color}]{config_valid}[/{config_color}]")
+        console.print()
 
     def upload_image(
         self,
@@ -543,15 +495,10 @@ class BackupService:
         )
 
         # Create progress bar
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            TextColumn("[progress.percentage]{task.completed}/{task.total} files"),
-        ) as progress:
+        from .styles import create_backup_progress_bar
+        with create_backup_progress_bar() as progress:
             upload_task = progress.add_task(
-                f"[cyan]Uploading to {provider_name}[/cyan]",
+                f"Uploading to {provider_name}",
                 total=total_files,
             )
 
@@ -588,29 +535,8 @@ class BackupService:
         self, provider_name: str, success: int, error: int, total: int
     ) -> None:
         """Show upload summary"""
-        table = Table(
-            title=f"[bold]{provider_name} Upload Summary[/bold]",
-            show_header=True,
-            header_style="bold magenta",
-        )
-        table.add_column("Item", style="cyan", no_wrap=True)
-        table.add_column("Count", style="magenta")
-
-        table.add_row("Successfully Uploaded", str(success))
-        table.add_row("Failed Uploads", str(error))
-        table.add_row("Total Files", str(total))
-
-        self.console.print(table)
-
-        if error > 0:
-            self.console.print()
-            self.console.print(
-                Panel(
-                    f"[yellow]There are {error} failed uploads, please check the logs for details[/yellow]",
-                    title="[yellow]Warning[/yellow]",
-                    border_style="yellow",
-                )
-            )
+        from .styles import print_upload_summary
+        print_upload_summary(provider_name, success, error, total)
 
     def compress_images(
         self,
@@ -675,15 +601,10 @@ class BackupService:
             skip_count = 0
 
             # Create progress bar
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-                TextColumn("[progress.percentage]{task.completed}/{task.total} files"),
-            ) as progress:
+            from .styles import create_backup_progress_bar
+            with create_backup_progress_bar() as progress:
                 compress_task = progress.add_task(
-                    "[cyan]Compressing images[/cyan]",
+                    "Compressing images",
                     total=len(files_to_compress),
                 )
 
@@ -814,27 +735,5 @@ class BackupService:
         self, success: int, error: int, skip: int, total: int
     ) -> None:
         """Show compression summary"""
-        table = Table(
-            title="[bold]Compression Summary[/bold]",
-            show_header=True,
-            header_style="bold magenta",
-        )
-        table.add_column("Item", style="cyan", no_wrap=True)
-        table.add_column("Count", style="magenta")
-
-        table.add_row("Successfully Compressed", str(success))
-        table.add_row("Failed Compressions", str(error))
-        table.add_row("Skipped Files", str(skip))
-        table.add_row("Total Files", str(total))
-
-        self.console.print(table)
-
-        if error > 0:
-            self.console.print()
-            self.console.print(
-                Panel(
-                    f"[yellow]There are {error} failed compressions, please check the logs for details[/yellow]",
-                    title="[yellow]Warning[/yellow]",
-                    border_style="yellow",
-                )
-            )
+        from .styles import print_compression_summary
+        print_compression_summary(success, error, skip, total)

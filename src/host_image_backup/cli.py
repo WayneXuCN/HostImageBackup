@@ -5,17 +5,32 @@ from loguru import logger
 from rich import print
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
 from rich.text import Text
 
 from .config import AppConfig
 from .service import BackupService
+from .styles import (
+    console,
+    print_success,
+    print_error,
+    print_warning,
+    print_info,
+    print_header,
+    print_section,
+    print_summary,
+    print_provider_list,
+    print_backup_summary,
+    print_upload_summary,
+    print_compression_summary,
+    print_statistics,
+    print_history,
+    print_duplicates
+)
 
 app = typer.Typer(
     name="host-image-backup",
     no_args_is_help=False,
 )
-console = Console()
 
 # Create sub-apps for command groups
 config_app = typer.Typer(
@@ -125,31 +140,19 @@ def config_init() -> None:
     # Check if config file already exists
     config_file = AppConfig.get_config_file()
     if config_file.exists():
-        console.print(
-            Panel(
-                f"[yellow]Configuration file already exists: {config_file}[/yellow]",
-                title="Warning",
-                border_style="yellow",
-            )
-        )
+        print_warning(f"Configuration file already exists: {config_file}")
         # Ask user if they want to overwrite
         confirm = typer.confirm("Do you want to overwrite the existing configuration?")
         if not confirm:
-            console.print("[blue]Operation cancelled.[/blue]")
+            print_info("Operation cancelled.")
             raise typer.Exit(code=0)
 
     # Create default configuration
     config = AppConfig()
     config.create_default_config()
 
-    console.print(
-        Panel(
-            f"[green]Configuration file created: {config_file}[/green]\n"
-            "[yellow]Please edit the configuration file and add your image hosting configuration information.[/yellow]",
-            title="Configuration Created",
-            border_style="green",
-        )
-    )
+    print_success(f"Configuration file created: {config_file}")
+    print_warning("Please edit the configuration file and add your image hosting configuration information.")
 
 
 @backup_app.command("start")
@@ -172,27 +175,21 @@ def backup_start(
 
     # Check if provider exists
     if provider not in service.list_providers():
-        console.print(f"[red]Unknown provider: {provider}[/red]")
+        print_error(f"Unknown provider: {provider}")
         available_providers = ", ".join(service.list_providers())
-        console.print(f"[yellow]Available providers: {available_providers}[/yellow]")
+        print_warning(f"Available providers: {available_providers}")
         raise typer.Exit(code=1)
 
     # Set output directory
     output_dir = output if output else Path(config.default_output_dir)
 
-    console.print(
-        Panel(
-            f"[cyan]Starting to backup images from {provider} to {output_dir}[/cyan]",
-            title="Backup Started",
-            border_style="blue",
-        )
-    )
+    print_section("Backup Started", f"Starting to backup images from {provider} to {output_dir}")
 
     if limit:
-        console.print(f"[blue]Limit download count: {limit}[/blue]")
+        print_info(f"Limit download count: {limit}")
 
     if skip_existing:
-        console.print("[blue]Skip existing files[/blue]")
+        print_info("Skip existing files")
 
     # Execute backup
     success = service.backup_images(
@@ -205,10 +202,10 @@ def backup_start(
 
     if success:
         console.print()  # Add empty line before success message
-        console.print("[green]Backup completed successfully[/green]")
+        print_success("Backup completed successfully")
     else:
         console.print()  # Add empty line before error message
-        console.print("[red]Errors occurred during backup[/red]")
+        print_error("Errors occurred during backup")
         raise typer.Exit(code=1)
 
 
@@ -240,29 +237,16 @@ def backup_all(
     ]
 
     if not enabled_providers:
-        console.print("[red]No enabled and valid providers[/red]")
+        print_error("No enabled and valid providers")
         raise typer.Exit(code=1)
 
     providers_list = ", ".join(enabled_providers)
-    console.print(
-        Panel(
-            f"[cyan]Will backup the following providers: {providers_list}[/cyan]\n"
-            f"[blue]Output directory: {output_dir}[/blue]",
-            title="Backup All Providers",
-            border_style="blue",
-        )
-    )
+    print_section("Backup All Providers", f"Will backup the following providers: {providers_list}\nOutput directory: {output_dir}")
 
     success_count = 0
 
     for provider_name in enabled_providers:
-        console.print(
-            Panel(
-                f"[cyan]Starting to backup {provider_name}...[/cyan]",
-                title=f"Provider: {provider_name}",
-                border_style="yellow",
-            )
-        )
+        print_section(f"Provider: {provider_name}", f"Starting to backup {provider_name}...")
 
         success = service.backup_images(
             provider_name=provider_name,
@@ -275,13 +259,13 @@ def backup_all(
         if success:
             success_count += 1
         else:
-            console.print(f"[red]{provider_name} backup failed[/red]")
+            print_error(f"{provider_name} backup failed")
 
-    result_text = Text(
-        f"\nBackup completed: {success_count}/{len(enabled_providers)} providers backed up successfully",
-        style="green" if success_count == len(enabled_providers) else "yellow",
-    )
-    console.print(result_text)
+    console.print()  # Add empty line before result
+    if success_count == len(enabled_providers):
+        print_success(f"Backup completed: {success_count}/{len(enabled_providers)} providers backed up successfully")
+    else:
+        print_warning(f"Backup completed: {success_count}/{len(enabled_providers)} providers backed up successfully")
 
     if success_count < len(enabled_providers):
         raise typer.Exit(code=1)
@@ -315,29 +299,16 @@ def backup_all(
     ]
 
     if not enabled_providers:
-        console.print("[red]No enabled and valid providers[/red]")
+        print_error("No enabled and valid providers")
         raise typer.Exit(code=1)
 
     providers_list = ", ".join(enabled_providers)
-    console.print(
-        Panel(
-            f"[cyan]Will backup the following providers: {providers_list}[/cyan]\n"
-            f"[blue]Output directory: {output_dir}[/blue]",
-            title="Backup All Providers",
-            border_style="blue",
-        )
-    )
+    print_section("Backup All Providers", f"Will backup the following providers: {providers_list}\nOutput directory: {output_dir}")
 
     success_count = 0
 
     for provider_name in enabled_providers:
-        console.print(
-            Panel(
-                f"[cyan]Starting to backup {provider_name}...[/cyan]",
-                title=f"Provider: {provider_name}",
-                border_style="yellow",
-            )
-        )
+        print_section(f"Provider: {provider_name}", f"Starting to backup {provider_name}...")
 
         success = service.backup_images(
             provider_name=provider_name,
@@ -350,13 +321,13 @@ def backup_all(
         if success:
             success_count += 1
         else:
-            console.print(f"[red]{provider_name} backup failed[/red]")
+            print_error(f"{provider_name} backup failed")
 
-    result_text = Text(
-        f"\nBackup completed: {success_count}/{len(enabled_providers)} providers backed up successfully",
-        style="green" if success_count == len(enabled_providers) else "yellow",
-    )
-    console.print(result_text)
+    console.print()  # Add empty line before result
+    if success_count == len(enabled_providers):
+        print_success(f"Backup completed: {success_count}/{len(enabled_providers)} providers backed up successfully")
+    else:
+        print_warning(f"Backup completed: {success_count}/{len(enabled_providers)} providers backed up successfully")
 
     if success_count < len(enabled_providers):
         raise typer.Exit(code=1)
@@ -370,22 +341,17 @@ def provider_list() -> None:
 
     providers = service.list_providers()
 
-    table = Table(
-        title="Available Providers", show_header=True, header_style="bold magenta"
-    )
-    table.add_column("Status", style="bold", width=12)
-    table.add_column("Provider Name")
-
+    provider_statuses = []
     for provider_name in providers:
         status = (
-            "[green]Enabled[/green]"
+            "Enabled"
             if provider_name in config.providers
             and config.providers[provider_name].enabled
-            else "[red]Disabled[/red]"
+            else "Disabled"
         )
-        table.add_row(status, provider_name)
+        provider_statuses.append((status, provider_name))
 
-    console.print(table)
+    print_provider_list(provider_statuses)
 
 
 @provider_app.command("test")
@@ -394,16 +360,16 @@ def provider_test(provider: str = typer.Argument(..., help="Provider name")) -> 
     service: BackupService = app.service  # type: ignore
 
     if provider not in service.list_providers():
-        console.print(f"[red]Unknown provider: {provider}[/red]")
+        print_error(f"Unknown provider: {provider}")
         raise typer.Exit(code=1)
 
-    console.print(f"[cyan]Testing {provider} connection...[/cyan]")
+    print_info(f"Testing {provider} connection...")
     success = service.test_provider(provider)
 
     if success:
-        console.print("[green]Connection test passed[/green]")
+        print_success("Connection test passed")
     else:
-        console.print("[red]Connection test failed[/red]")
+        print_error("Connection test failed")
         raise typer.Exit(code=1)
 
 
@@ -413,7 +379,7 @@ def provider_info(provider: str = typer.Argument(..., help="Provider name")) -> 
     service: BackupService = app.service  # type: ignore
 
     if provider not in service.list_providers():
-        console.print(f"[red]Unknown provider: {provider}[/red]")
+        print_error(f"Unknown provider: {provider}")
         raise typer.Exit(code=1)
 
     service.show_provider_info(provider)
@@ -435,21 +401,15 @@ def upload(
 
     # Check if provider exists
     if provider not in service.list_providers():
-        console.print(f"[red]Unknown provider: {provider}[/red]")
+        print_error(f"Unknown provider: {provider}")
         available_providers = ", ".join(service.list_providers())
-        console.print(f"[yellow]Available providers: {available_providers}[/yellow]")
+        print_warning(f"Available providers: {available_providers}")
         raise typer.Exit(code=1)
 
-    console.print(
-        Panel(
-            f"[cyan]Uploading {file.name} to {provider}[/cyan]",
-            title="Upload",
-            border_style="blue",
-        )
-    )
+    print_section("Upload", f"Uploading {file.name} to {provider}")
 
     if remote_path:
-        console.print(f"[blue]Remote path: {remote_path}[/blue]")
+        print_info(f"Remote path: {remote_path}")
 
     # Execute upload
     success = service.upload_image(
@@ -460,9 +420,9 @@ def upload(
     )
 
     if success:
-        console.print("[green]Upload completed successfully[/green]")
+        print_success("Upload completed successfully")
     else:
-        console.print("[red]Upload failed[/red]")
+        print_error("Upload failed")
         raise typer.Exit(code=1)
 
 
@@ -492,9 +452,9 @@ def upload_all(
 
     # Check if provider exists
     if provider not in service.list_providers():
-        console.print(f"[red]Unknown provider: {provider}[/red]")
+        print_error(f"Unknown provider: {provider}")
         available_providers = ", ".join(service.list_providers())
-        console.print(f"[yellow]Available providers: {available_providers}[/yellow]")
+        print_warning(f"Available providers: {available_providers}")
         raise typer.Exit(code=1)
 
     image_extensions = {
@@ -530,20 +490,10 @@ def upload_all(
         files_to_upload = files_to_upload[:limit]
 
     if not files_to_upload:
-        console.print(
-            f"[yellow]No image files found matching pattern: {pattern}[/yellow]"
-        )
+        print_warning(f"No image files found matching pattern: {pattern}")
         raise typer.Exit(code=1)
 
-    console.print(
-        Panel(
-            f"[cyan]Uploading {len(files_to_upload)} images from {directory} to {provider}[/cyan]\n"
-            f"[blue]Pattern: {pattern}[/blue]\n"
-            f"[blue]Remote prefix: {remote_prefix or 'None'}[/blue]",
-            title="Batch Upload",
-            border_style="blue",
-        )
-    )
+    print_section("Batch Upload", f"Uploading {len(files_to_upload)} images from {directory} to {provider}\nPattern: {pattern}\nRemote prefix: {remote_prefix or 'None'}")
 
     # Execute batch upload
     success = service.upload_batch(
@@ -554,9 +504,9 @@ def upload_all(
     )
 
     if success:
-        console.print("[green]Batch upload completed successfully[/green]")
+        print_success("Batch upload completed successfully")
     else:
-        console.print("[red]Some uploads failed[/red]")
+        print_error("Some uploads failed")
         raise typer.Exit(code=1)
 
 
@@ -570,27 +520,12 @@ def stats(
     service: BackupService = app.service  # type: ignore
 
     stats = service.metadata_manager.get_statistics()
-
-    table = Table(
-        title="[bold]Backup Statistics[/bold]",
-        show_header=True,
-        header_style="bold blue",
-    )
-    table.add_column("Metric", style="cyan")
-    table.add_column("Value", style="magenta")
-
-    table.add_row("Total Operations", str(stats["total_operations"]))
-    table.add_row("Successful Operations", str(stats["successful_operations"]))
-    table.add_row("Failed Operations", str(stats["failed_operations"]))
-    table.add_row("Total Files", str(stats["total_files"]))
-    table.add_row("Total Size", f"{stats['total_size']:,} bytes")
-
-    console.print(table)
+    print_statistics(stats)
 
     # Show operations by type if detailed flag is set
     if detailed and stats["operations_by_type"]:
         console.print()
-        console.print("[bold]Operations by Type:[/bold]")
+        print_header("Operations by Type:")
         for op_type, count in stats["operations_by_type"].items():
             console.print(f"  {op_type}: {count}")
 
@@ -613,34 +548,7 @@ def history(
         limit=limit,
     )
 
-    if not records:
-        console.print("[yellow]No backup records found[/yellow]")
-        return
-
-    table = Table(
-        title="[bold]Recent Backup Records[/bold]",
-        show_header=True,
-        header_style="bold blue",
-    )
-    table.add_column("Time", style="cyan")
-    table.add_column("Operation", style="magenta")
-    table.add_column("Provider", style="green")
-    table.add_column("File", style="yellow")
-    table.add_column("Status", style="red")
-
-    for record in records[:20]:  # Show last 20 records
-        status_color = "green" if record.status == "success" else "red"
-        table.add_row(
-            record.created_at.strftime("%Y-%m-%d %H:%M:%S")
-            if record.created_at
-            else "Unknown",
-            record.operation,
-            record.provider,
-            Path(record.file_path).name,
-            f"[{status_color}]{record.status}[/{status_color}]",
-        )
-
-    console.print(table)
+    print_history(records)
 
 
 @data_app.command("duplicates")
@@ -649,38 +557,19 @@ def duplicates() -> None:
     service: BackupService = app.service  # type: ignore
 
     duplicates = service.metadata_manager.find_duplicates()
-
-    if not duplicates:
-        console.print("[green]No duplicate files found[/green]")
-        return
-
-    table = Table(
-        title="[bold]Duplicate Files[/bold]",
-        show_header=True,
-        header_style="bold blue",
-    )
-    table.add_column("Hash", style="cyan")
-    table.add_column("Files", style="magenta")
-
-    for file_hash, files in list(duplicates.items())[
-        :10
-    ]:  # Show first 10 duplicates
-        file_names = [Path(f).name for f in files]
-        table.add_row(file_hash[:8] + "...", "\n".join(file_names))
-
-    console.print(table)
+    print_duplicates(duplicates)
 
 
 @data_app.command("cleanup")
 def cleanup() -> None:
     """Clean up backup files and metadata"""
-    console.print("[yellow]Cleanup functionality not yet implemented[/yellow]")
+    print_warning("Cleanup functionality not yet implemented")
 
 
 @data_app.command("verify")
 def verify() -> None:
     """Verify backup file integrity"""
-    console.print("[yellow]Verification functionality not yet implemented[/yellow]")
+    print_warning("Verification functionality not yet implemented")
 
 
 @data_app.command("compress")
@@ -728,7 +617,7 @@ def compress(
 
     # Validate format if provided
     if format and format.upper() not in ["JPEG", "PNG", "WEBP"]:
-        console.print("[red]Invalid format. Supported formats: JPEG, PNG, WEBP[/red]")
+        print_error("Invalid format. Supported formats: JPEG, PNG, WEBP")
         raise typer.Exit(code=1)
 
     # Set default output directory if not provided
@@ -738,17 +627,7 @@ def compress(
         else:
             output = input_path / "compressed"
 
-    console.print(
-        Panel(
-            f"[cyan]Starting image compression[/cyan]\n"
-            f"[blue]Input: {input_path}[/blue]\n"
-            f"[blue]Output: {output}[/blue]\n"
-            f"[blue]Quality: {quality}%[/blue]\n"
-            f"[blue]Format: {format or 'Same as input'}[/blue]",
-            title="Image Compression",
-            border_style="blue",
-        )
-    )
+    print_section("Image Compression", f"Starting image compression\nInput: {input_path}\nOutput: {output}\nQuality: {quality}%\nFormat: {format or 'Same as input'}")
 
     # Execute compression
     success = service.compress_images(
@@ -762,9 +641,9 @@ def compress(
     )
 
     if success:
-        console.print("[green]Compression completed successfully[/green]")
+        print_success("Compression completed successfully")
     else:
-        console.print("[red]Compression failed[/red]")
+        print_error("Compression failed")
         raise typer.Exit(code=1)
 
 
