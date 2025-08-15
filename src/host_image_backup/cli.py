@@ -534,7 +534,7 @@ def history(
 
 @app.command()
 def tool(
-    action: str = typer.Argument(..., help="Tool action: duplicates, cleanup, verify"),
+    action: str = typer.Argument(..., help="Tool action: duplicates, cleanup, verify, compress"),
 ) -> None:
     """Utility tools for backup management"""
     service: BackupService = app.service  # type: ignore
@@ -561,18 +561,107 @@ def tool(
             table.add_row(file_hash[:8] + "...", "\n".join(file_names))
 
         console.print(table)
-        
+
     elif action == "cleanup":
         # TODO: Implement cleanup functionality
         console.print("[yellow]Cleanup functionality not yet implemented[/yellow]")
-        
+
     elif action == "verify":
         # TODO: Implement verification functionality
         console.print("[yellow]Verification functionality not yet implemented[/yellow]")
-        
+
+    elif action == "compress":
+        # This will be handled by the compress command below
+        console.print("[yellow]Please use 'hib compress' command with options[/yellow]")
+
     else:
         console.print(f"[red]Unknown tool action: {action}[/red]")
-        console.print("[yellow]Available actions: duplicates, cleanup, verify[/yellow]")
+        console.print("[yellow]Available actions: duplicates, cleanup, verify, compress[/yellow]")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def compress(
+    input_path: Path = typer.Argument(
+        ...,
+        help="File or directory to compress",
+        exists=True
+    ),
+    quality: int = typer.Option(
+        85,
+        "--quality",
+        "-q",
+        help="Compression quality (1-100)",
+        min=1,
+        max=100
+    ),
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Output directory for compressed files"
+    ),
+    recursive: bool = typer.Option(
+        False,
+        "--recursive",
+        "-r",
+        help="Recursively compress images in subdirectories"
+    ),
+    format: str = typer.Option(
+        None,
+        "--format",
+        "-f",
+        help="Output format (JPEG, PNG, WEBP)"
+    ),
+    skip_existing: bool = typer.Option(
+        True,
+        "--skip-existing/--overwrite-existing",
+        help="Skip files that already exist in output directory"
+    ),
+) -> None:
+    """Compress images with high fidelity"""
+    service: BackupService = app.service  # type: ignore
+    verbose: bool = app.verbose  # type: ignore
+
+    # Validate format if provided
+    if format and format.upper() not in ["JPEG", "PNG", "WEBP"]:
+        console.print("[red]Invalid format. Supported formats: JPEG, PNG, WEBP[/red]")
+        raise typer.Exit(code=1)
+
+    # Set default output directory if not provided
+    if output is None:
+        if input_path.is_file():
+            output = input_path.parent / "compressed"
+        else:
+            output = input_path / "compressed"
+
+    console.print(
+        Panel(
+            f"[cyan]Starting image compression[/cyan]\n"
+            f"[blue]Input: {input_path}[/blue]\n"
+            f"[blue]Output: {output}[/blue]\n"
+            f"[blue]Quality: {quality}%[/blue]\n"
+            f"[blue]Format: {format or 'Same as input'}[/blue]",
+            title="Image Compression",
+            border_style="blue",
+        )
+    )
+
+    # Execute compression
+    success = service.compress_images(
+        input_path=input_path,
+        output_dir=output,
+        quality=quality,
+        output_format=format,
+        recursive=recursive,
+        skip_existing=skip_existing,
+        verbose=verbose,
+    )
+
+    if success:
+        console.print("[green]Compression completed successfully[/green]")
+    else:
+        console.print("[red]Compression failed[/red]")
         raise typer.Exit(code=1)
 
 

@@ -34,6 +34,7 @@
 - 📈 **Metadata Management** - Track backup operations and file information
 - 📦 **Batch Operations** - Upload multiple files at once
 - 🔍 **Duplicate Detection** - Find and manage duplicate files
+- 🗜️ **Image Compression** - High fidelity image compression with quality control
 
 ---
 
@@ -456,6 +457,55 @@ host-image-backup tool <action>
 - Check file hashes
 - Validate file integrity
 - Report inconsistencies
+
+### `compress` - High Fidelity Image Compression
+
+Compress images with high fidelity while reducing file size.
+
+```bash
+host-image-backup compress [OPTIONS] INPUT_PATH
+```
+
+**Arguments:**
+
+- `INPUT_PATH`: File or directory to compress
+
+**Options:**
+
+```bash
+-q, --quality INTEGER RANGE [1-100]
+                        Compression quality (1-100, default: 85)
+-o, --output PATH       Output directory for compressed files
+-r, --recursive         Recursively compress images in subdirectories
+-f, --format [JPEG|PNG|WEBP]
+                        Output format (default: same as input)
+--skip-existing / --overwrite-existing
+                        Skip files that already exist in output directory
+```
+
+**Examples:**
+
+```bash
+# Compress a single image with default quality (85%)
+host-image-backup compress image.jpg
+# Or use short alias
+hib compress image.jpg
+
+# Compress with custom quality and output directory
+host-image-backup compress --quality 90 --output ./compressed folder/
+# Or use short alias
+hib compress -q 90 -o ./compressed folder/
+
+# Convert to different format
+host-image-backup compress --format WEBP --quality 80 image.png
+# Or use short alias
+hib compress -f WEBP -q 80 image.png
+
+# Recursively compress all images in a directory
+host-image-backup compress --recursive --quality 75 folder/
+# Or use short alias
+hib compress -r -q 75 folder/
+```
 
 **Examples:**
 

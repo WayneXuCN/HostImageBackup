@@ -16,6 +16,7 @@ from rich.table import Table
 from .config import AppConfig
 from .metadata import MetadataManager
 from .providers import BaseProvider, ImageInfo
+from .providers.base import SUPPORTED_IMAGE_EXTENSIONS
 from .providers.cos import COSProvider
 from .providers.github import GitHubProvider
 from .providers.imgur import ImgurProvider
@@ -206,7 +207,7 @@ class BackupService:
                                     status="success",
                                     message="Download completed successfully",
                                 )
-                                
+
                                 # Update image metadata for statistics
                                 if output_file.exists():
                                     try:
@@ -219,9 +220,9 @@ class BackupService:
                                             with Image.open(output_file) as img:
                                                 width, height = img.size
                                                 format = img.format
-                                        except:
+                                        except Exception:
                                             pass  # Ignore if PIL is not available or fails
-                                        
+
                                         self.metadata_manager.update_file_metadata(
                                             file_path=output_file,
                                             file_hash=file_hash,
@@ -606,6 +607,233 @@ class BackupService:
             self.console.print(
                 Panel(
                     f"[yellow]There are {error} failed uploads, please check the logs for details[/yellow]",
+                    title="[yellow]Warning[/yellow]",
+                    border_style="yellow",
+                )
+            )
+
+    def compress_images(
+        self,
+        input_path: Path,
+        output_dir: Path,
+        quality: int = 85,
+        output_format: str | None = None,
+        recursive: bool = False,
+        skip_existing: bool = True,
+        verbose: bool = False,
+    ) -> bool:
+        """Compress images with high fidelity
+
+        Parameters
+        ----------
+        input_path : Path
+            File or directory to compress.
+        output_dir : Path
+            Output directory for compressed files.
+        quality : int, default=85
+            Compression quality (1-100).
+        output_format : str, optional
+            Output format (JPEG, PNG, WEBP). If None, uses same as input.
+        recursive : bool, default=False
+            Recursively compress images in subdirectories.
+        skip_existing : bool, default=True
+            Skip files that already exist in output directory.
+        verbose : bool, default=False
+            Show detailed logs.
+
+        Returns
+        -------
+        bool
+            True if compression was successful, False otherwise.
+        """
+        try:
+            # Create output directory
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            # Collect files to compress
+            files_to_compress = []
+
+            if input_path.is_file():
+                if input_path.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS:
+                    files_to_compress.append(input_path)
+                else:
+                    self.console.print(f"[red]Unsupported file format: {input_path}[/red]")
+                    return False
+            else:
+                # Directory processing
+                pattern = "**/*" if recursive else "*"
+                for file_path in input_path.glob(pattern):
+                    if file_path.is_file() and file_path.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS:
+                        files_to_compress.append(file_path)
+
+            if not files_to_compress:
+                self.console.print("[yellow]No image files found to compress[/yellow]")
+                return False
+
+            success_count = 0
+            error_count = 0
+            skip_count = 0
+
+            # Create progress bar
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                TextColumn("[progress.percentage]{task.completed}/{task.total} files"),
+            ) as progress:
+                compress_task = progress.add_task(
+                    "[cyan]Compressing images[/cyan]",
+                    total=len(files_to_compress),
+                )
+
+                # Process each file
+                for file_path in files_to_compress:
+                    try:
+                        # Determine output file path
+                        relative_path = file_path.relative_to(input_path) if input_path.is_dir() else Path(file_path.name)
+
+                        # Determine output format
+                        if output_format:
+                            output_ext = f".{output_format.lower()}"
+                        else:
+                            output_ext = file_path.suffix.lower()
+
+                        # For JPEG, use .jpg extension
+                        if output_ext == ".jpeg":
+                            output_ext = ".jpg"
+
+                        output_file = output_dir / relative_path.with_suffix(output_ext)
+
+                        # Create output subdirectory if needed
+                        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+                        # Skip if file exists and skip_existing is True
+                        if skip_existing and output_file.exists():
+                            skip_count += 1
+                            if verbose:
+                                self.console.print(f"[yellow]Skipping existing file: {output_file}[/yellow]")
+                            progress.update(compress_task, advance=1)
+                            continue
+
+                        # Compress image
+                        if self._compress_single_image(file_path, output_file, quality, output_format):
+                            success_count += 1
+                            if verbose:
+                                self.console.print(f"[green]Compressed: {file_path.name} -> {output_file.name}[/green]")
+                        else:
+                            error_count += 1
+                            if verbose:
+                                self.console.print(f"[red]Failed to compress: {file_path.name}[/red]")
+
+                    except Exception as e:
+                        error_count += 1
+                        self.logger.error(f"Compression error for {file_path}: {e}")
+                        if verbose:
+                            self.console.print(f"[red]Error compressing {file_path.name}: {e}[/red]")
+
+                    progress.update(compress_task, advance=1)
+
+            # Show summary
+            self.console.print()
+            self._show_compression_summary(success_count, error_count, skip_count, len(files_to_compress))
+
+            return error_count == 0
+
+        except Exception as e:
+            self.logger.error(f"Compression process error: {e}")
+            self.console.print(f"[red]Compression error: {str(e)}[/red]")
+            return False
+
+    def _compress_single_image(
+        self,
+        input_file: Path,
+        output_file: Path,
+        quality: int,
+        output_format: str | None = None
+    ) -> bool:
+        """Compress a single image file
+
+        Parameters
+        ----------
+        input_file : Path
+            Input image file path.
+        output_file : Path
+            Output image file path.
+        quality : int
+            Compression quality (1-100).
+        output_format : str, optional
+            Output format (JPEG, PNG, WEBP).
+
+        Returns
+        -------
+        bool
+            True if compression was successful, False otherwise.
+        """
+        try:
+            from PIL import Image
+
+            # Open image
+            with Image.open(input_file) as img:
+                # Convert RGBA to RGB for JPEG format
+                if ((output_format and output_format.upper() == "JPEG") or \
+                   (not output_format and input_file.suffix.lower() in [".png", ".webp"])) and \
+                   img.mode in ("RGBA", "LA", "P"):
+                    # Create white background for transparency
+                    background = Image.new("RGB", img.size, (255, 255, 255))
+                    if img.mode == "P":
+                        img = img.convert("RGBA")
+                    background.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
+                    img = background
+
+                # Determine format
+                if output_format:
+                    format = output_format.upper()
+                else:
+                    format = img.format if img.format else "JPEG"
+
+                # Save with compression
+                save_kwargs = {}
+                if format in ["JPEG", "WEBP"]:
+                    save_kwargs["quality"] = quality
+                    save_kwargs["optimize"] = True
+
+                if format == "PNG":
+                    # For PNG, quality parameter is not used, but we can optimize
+                    save_kwargs["optimize"] = True
+
+                img.save(output_file, format=format, **save_kwargs)
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to compress {input_file}: {e}")
+            return False
+
+    def _show_compression_summary(
+        self, success: int, error: int, skip: int, total: int
+    ) -> None:
+        """Show compression summary"""
+        table = Table(
+            title="[bold]Compression Summary[/bold]",
+            show_header=True,
+            header_style="bold magenta",
+        )
+        table.add_column("Item", style="cyan", no_wrap=True)
+        table.add_column("Count", style="magenta")
+
+        table.add_row("Successfully Compressed", str(success))
+        table.add_row("Failed Compressions", str(error))
+        table.add_row("Skipped Files", str(skip))
+        table.add_row("Total Files", str(total))
+
+        self.console.print(table)
+
+        if error > 0:
+            self.console.print()
+            self.console.print(
+                Panel(
+                    f"[yellow]There are {error} failed compressions, please check the logs for details[/yellow]",
                     title="[yellow]Warning[/yellow]",
                     border_style="yellow",
                 )
