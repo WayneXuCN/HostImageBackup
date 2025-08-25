@@ -3,28 +3,21 @@ from pathlib import Path
 import typer
 from loguru import logger
 from rich import print
-from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
 
 from .config import AppConfig
 from .service import BackupService
 from .styles import (
     console,
-    print_success,
+    print_duplicates,
     print_error,
-    print_warning,
-    print_info,
     print_header,
-    print_section,
-    print_summary,
-    print_provider_list,
-    print_backup_summary,
-    print_upload_summary,
-    print_compression_summary,
-    print_statistics,
     print_history,
-    print_duplicates
+    print_info,
+    print_provider_list,
+    print_section,
+    print_statistics,
+    print_success,
+    print_warning,
 )
 
 app = typer.Typer(
@@ -152,7 +145,9 @@ def config_init() -> None:
     config.create_default_config()
 
     print_success(f"Configuration file created: {config_file}")
-    print_warning("Please edit the configuration file and add your image hosting configuration information.")
+    print_warning(
+        "Please edit the configuration file and add your image hosting configuration information."
+    )
 
 
 @backup_app.command("start")
@@ -183,7 +178,9 @@ def backup_start(
     # Set output directory
     output_dir = output if output else Path(config.default_output_dir)
 
-    print_section("Backup Started", f"Starting to backup images from {provider} to {output_dir}")
+    print_section(
+        "Backup Started", f"Starting to backup images from {provider} to {output_dir}"
+    )
 
     if limit:
         print_info(f"Limit download count: {limit}")
@@ -209,27 +206,17 @@ def backup_start(
         raise typer.Exit(code=1)
 
 
-@backup_app.command("all")
-def backup_all(
-    output: Path | None = typer.Option(None, "--output", "-o", help="Output directory for all providers"),
-    limit: int | None = typer.Option(
-        None, "--limit", "-l", help="Limit download count per provider"
-    ),
-    skip_existing: bool = typer.Option(
-        True,
-        "--skip-existing/--no-skip-existing",
-        help="Skip existing files [default: skip-existing]",
-    ),
+def _backup_all_impl(
+    output: Path | None,
+    limit: int | None,
+    skip_existing: bool,
 ) -> None:
-    """Backup images from all enabled providers"""
+    """Backup images from all enabled providers (shared implementation)"""
     service: BackupService = app.service  # type: ignore
     config: AppConfig = app.config  # type: ignore
     verbose: bool = app.verbose  # type: ignore
 
-    # Set output directory
     output_dir = output if output else Path(config.default_output_dir)
-
-    # Get all enabled providers
     enabled_providers = [
         name
         for name, provider_config in config.providers.items()
@@ -241,12 +228,17 @@ def backup_all(
         raise typer.Exit(code=1)
 
     providers_list = ", ".join(enabled_providers)
-    print_section("Backup All Providers", f"Will backup the following providers: {providers_list}\nOutput directory: {output_dir}")
+    print_section(
+        "Backup All Providers",
+        f"Will backup the following providers: {providers_list}\nOutput directory: {output_dir}",
+    )
 
     success_count = 0
 
     for provider_name in enabled_providers:
-        print_section(f"Provider: {provider_name}", f"Starting to backup {provider_name}...")
+        print_section(
+            f"Provider: {provider_name}", f"Starting to backup {provider_name}..."
+        )
 
         success = service.backup_images(
             provider_name=provider_name,
@@ -263,17 +255,39 @@ def backup_all(
 
     console.print()  # Add empty line before result
     if success_count == len(enabled_providers):
-        print_success(f"Backup completed: {success_count}/{len(enabled_providers)} providers backed up successfully")
+        print_success(
+            f"Backup completed: {success_count}/{len(enabled_providers)} providers backed up successfully"
+        )
     else:
-        print_warning(f"Backup completed: {success_count}/{len(enabled_providers)} providers backed up successfully")
+        print_warning(
+            f"Backup completed: {success_count}/{len(enabled_providers)} providers backed up successfully"
+        )
 
     if success_count < len(enabled_providers):
         raise typer.Exit(code=1)
+
+@backup_app.command("all")
+def backup_all(
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Output directory for all providers"
+    ),
+    limit: int | None = typer.Option(
+        None, "--limit", "-l", help="Limit download count per provider"
+    ),
+    skip_existing: bool = typer.Option(
+        True,
+        "--skip-existing/--no-skip-existing",
+        help="Skip existing files [default: skip-existing]",
+    ),
+) -> None:
+    _backup_all_impl(output, limit, skip_existing)
 
 
 @app.command("backup-all")
-def backup_all(
-    output: Path | None = typer.Option(None, "--output", "-o", help="Output directory for all providers"),
+def backup_all_cli(
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Output directory for all providers"
+    ),
     limit: int | None = typer.Option(
         None, "--limit", "-l", help="Limit download count per provider"
     ),
@@ -283,54 +297,7 @@ def backup_all(
         help="Skip existing files [default: skip-existing]",
     ),
 ) -> None:
-    """Backup images from all enabled providers"""
-    service: BackupService = app.service  # type: ignore
-    config: AppConfig = app.config  # type: ignore
-    verbose: bool = app.verbose  # type: ignore
-
-    # Set output directory
-    output_dir = output if output else Path(config.default_output_dir)
-
-    # Get all enabled providers
-    enabled_providers = [
-        name
-        for name, provider_config in config.providers.items()
-        if provider_config.enabled and provider_config.validate_config()
-    ]
-
-    if not enabled_providers:
-        print_error("No enabled and valid providers")
-        raise typer.Exit(code=1)
-
-    providers_list = ", ".join(enabled_providers)
-    print_section("Backup All Providers", f"Will backup the following providers: {providers_list}\nOutput directory: {output_dir}")
-
-    success_count = 0
-
-    for provider_name in enabled_providers:
-        print_section(f"Provider: {provider_name}", f"Starting to backup {provider_name}...")
-
-        success = service.backup_images(
-            provider_name=provider_name,
-            output_dir=output_dir,
-            limit=limit,
-            skip_existing=skip_existing,
-            verbose=verbose,
-        )
-
-        if success:
-            success_count += 1
-        else:
-            print_error(f"{provider_name} backup failed")
-
-    console.print()  # Add empty line before result
-    if success_count == len(enabled_providers):
-        print_success(f"Backup completed: {success_count}/{len(enabled_providers)} providers backed up successfully")
-    else:
-        print_warning(f"Backup completed: {success_count}/{len(enabled_providers)} providers backed up successfully")
-
-    if success_count < len(enabled_providers):
-        raise typer.Exit(code=1)
+    _backup_all_impl(output, limit, skip_existing)
 
 
 @provider_app.command("list")
@@ -493,7 +460,10 @@ def upload_all(
         print_warning(f"No image files found matching pattern: {pattern}")
         raise typer.Exit(code=1)
 
-    print_section("Batch Upload", f"Uploading {len(files_to_upload)} images from {directory} to {provider}\nPattern: {pattern}\nRemote prefix: {remote_prefix or 'None'}")
+    print_section(
+        "Batch Upload",
+        f"Uploading {len(files_to_upload)} images from {directory} to {provider}\nPattern: {pattern}\nRemote prefix: {remote_prefix or 'None'}",
+    )
 
     # Execute batch upload
     success = service.upload_batch(
@@ -575,40 +545,24 @@ def verify() -> None:
 @data_app.command("compress")
 def compress(
     input_path: Path = typer.Argument(
-        ...,
-        help="File or directory to compress",
-        exists=True
+        ..., help="File or directory to compress", exists=True
     ),
     quality: int = typer.Option(
-        85,
-        "--quality",
-        "-q",
-        help="Compression quality (1-100)",
-        min=1,
-        max=100
+        85, "--quality", "-q", help="Compression quality (1-100)", min=1, max=100
     ),
     output: Path | None = typer.Option(
-        None,
-        "--output",
-        "-o",
-        help="Output directory for compressed files"
+        None, "--output", "-o", help="Output directory for compressed files"
     ),
     recursive: bool = typer.Option(
-        False,
-        "--recursive",
-        "-r",
-        help="Recursively compress images in subdirectories"
+        False, "--recursive", "-r", help="Recursively compress images in subdirectories"
     ),
     format: str = typer.Option(
-        None,
-        "--format",
-        "-f",
-        help="Output format (JPEG, PNG, WEBP)"
+        None, "--format", "-f", help="Output format (JPEG, PNG, WEBP)"
     ),
     skip_existing: bool = typer.Option(
         True,
         "--skip-existing/--overwrite-existing",
-        help="Skip files that already exist in output directory"
+        help="Skip files that already exist in output directory",
     ),
 ) -> None:
     """Compress images with high fidelity"""
@@ -627,7 +581,10 @@ def compress(
         else:
             output = input_path / "compressed"
 
-    print_section("Image Compression", f"Starting image compression\nInput: {input_path}\nOutput: {output}\nQuality: {quality}%\nFormat: {format or 'Same as input'}")
+    print_section(
+        "Image Compression",
+        f"Starting image compression\nInput: {input_path}\nOutput: {output}\nQuality: {quality}%\nFormat: {format or 'Same as input'}",
+    )
 
     # Execute compression
     success = service.compress_images(
