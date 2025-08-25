@@ -4,6 +4,12 @@ import yaml
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
+try:
+    from importlib.metadata import EntryPoint, entry_points
+except Exception:
+    entry_points = None
+    EntryPoint = object
+
 
 class ProviderConfig(BaseModel):
     """Base configuration class for image hosting providers.
@@ -37,6 +43,84 @@ class ProviderConfig(BaseModel):
             True if configuration is valid, False otherwise.
         """
         return True
+
+    # --- Registry hooks ---
+    @classmethod
+    def register(cls, name: str) -> None:
+        """Register config class manually.
+
+        Typically used by internal providers; external plugins rely on entry points.
+        """
+        ConfigRegistry.register(name, cls)  # type: ignore[arg-type]
+
+
+class ConfigRegistry:
+    """Central registry for ProviderConfig classes.
+
+    双通道：
+    1. 代码内显式 ProviderConfig.register(name)
+    2. entry points: group `host_image_backup.provider_configs`
+    """
+
+    _providers: dict[str, type[ProviderConfig]] = {}
+    _discovered: bool = False
+
+    @classmethod
+    def register(cls, name: str, config_class: type[ProviderConfig]) -> None:
+        if name in cls._providers:
+            logger.debug(
+                f"ConfigRegistry: provider config '{name}' already registered, skip"
+            )
+            return
+        cls._providers[name] = config_class
+
+    @classmethod
+    def discover_entry_points(cls) -> None:
+        if cls._discovered:
+            return
+        cls._discovered = True
+        if entry_points is None:  # pragma: no cover
+            logger.debug("ConfigRegistry: entry_points not available, skip discovery")
+            return
+        try:
+            eps = entry_points()
+            group = "host_image_backup.provider_configs"
+            if hasattr(eps, "select"):
+                selected = eps.select(group=group)  # type: ignore[attr-defined]
+            else:
+                selected = eps.get(group, [])  # type: ignore[index]
+            added = []
+            for ep in selected:  # type: ignore[assignment]
+                name = getattr(ep, "name", None)
+                if not name or name in cls._providers:
+                    continue
+                try:
+                    obj = ep.load()
+                    if not isinstance(obj, type) or not issubclass(obj, ProviderConfig):
+                        logger.error(
+                            f"ConfigRegistry: entry point '{name}' not a ProviderConfig subclass"
+                        )
+                        continue
+                    cls._providers[name] = obj
+                    added.append(name)
+                except Exception as exc:  # pragma: no cover
+                    logger.error(f"ConfigRegistry: failed loading '{name}': {exc}")
+            if added:
+                logger.info(
+                    "ConfigRegistry: discovered provider configs: "
+                    + ", ".join(sorted(added))
+                )
+        except Exception as e:  # pragma: no cover
+            logger.error(f"ConfigRegistry: discovery failed: {e}")
+
+    @classmethod
+    def get(cls, name: str) -> type[ProviderConfig] | None:
+        return cls._providers.get(name)
+
+    @classmethod
+    def all(cls) -> dict[str, type[ProviderConfig]]:
+        cls.discover_entry_points()
+        return dict(cls._providers)
 
 
 class OSSConfig(ProviderConfig):
@@ -399,19 +483,19 @@ class AppConfig(BaseModel):
             "providers": {},
         }
 
-        # Load provider configurations
+        # Load provider configurations (dynamic)
         providers_data = data.get("providers", {})
-        provider_classes = {
-            "oss": OSSConfig,
-            "cos": COSConfig,
-            "sms": SMSConfig,
-            "imgur": ImgurConfig,
-            "github": GitHubConfig,
-        }
-
-        for provider_name, provider_class in provider_classes.items():
+        # Ensure built-in configs registered
+        OSSConfig.register("oss")
+        COSConfig.register("cos")
+        SMSConfig.register("sms")
+        ImgurConfig.register("imgur")
+        GitHubConfig.register("github")
+        # Discover external
+        ConfigRegistry.discover_entry_points()
+        for provider_name, provider_class in ConfigRegistry.all().items():
             if provider_name in providers_data:
-                provider_data = providers_data[provider_name]
+                provider_data = providers_data[provider_name] or {}
                 try:
                     config_data["providers"][provider_name] = provider_class(
                         name=provider_name, **provider_data
@@ -476,12 +560,15 @@ class AppConfig(BaseModel):
         providers and saves them to the configuration file.
         """
         try:
+            # Register built-in & discover third-party
+            OSSConfig.register("oss")
+            COSConfig.register("cos")
+            SMSConfig.register("sms")
+            ImgurConfig.register("imgur")
+            GitHubConfig.register("github")
+            ConfigRegistry.discover_entry_points()
             self.providers = {
-                "oss": OSSConfig(name="oss"),
-                "cos": COSConfig(name="cos"),
-                "sms": SMSConfig(name="sms"),
-                "imgur": ImgurConfig(name="imgur"),
-                "github": GitHubConfig(name="github"),
+                name: cls(name=name) for name, cls in ConfigRegistry.all().items()
             }
             self.save()
             logger.success("Default configuration created successfully")
