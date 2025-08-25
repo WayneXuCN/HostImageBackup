@@ -49,6 +49,22 @@ Issues = "https://github.com/WayneXuCN/HostImageBackup/issues"
 host-image-backup = "host_image_backup.cli:app"
 hib = "host_image_backup.cli:app"
 
+# 插件系统：内置提供商入口点 (允许外部包追加新的 providers)
+[project.entry-points."host_image_backup.providers"]
+oss = "host_image_backup.providers.oss:OSSProvider"
+cos = "host_image_backup.providers.cos:COSProvider"
+sms = "host_image_backup.providers.sms:SMSProvider"
+imgur = "host_image_backup.providers.imgur:ImgurProvider"
+github = "host_image_backup.providers.github:GitHubProvider"
+
+# Provider Config 动态发现入口点（名称需与 providers 一致）
+[project.entry-points."host_image_backup.provider_configs"]
+oss = "host_image_backup.config:OSSConfig"
+cos = "host_image_backup.config:COSConfig"
+sms = "host_image_backup.config:SMSConfig"
+imgur = "host_image_backup.config:ImgurConfig"
+github = "host_image_backup.config:GitHubConfig"
+
 [tool.hatch.version]
 path = "src/host_image_backup/__init__.py"
 

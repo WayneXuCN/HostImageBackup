@@ -20,6 +20,12 @@ from .config import (
     SMSConfig,
 )
 
+try:  # Python 3.10+
+    from importlib.metadata import EntryPoint, entry_points
+except Exception:  # pragma: no cover
+    entry_points = None  # type: ignore
+    EntryPoint = object  # type: ignore
+
 
 class ConfigManager:
     """Configuration manager for Host Image Backup.
@@ -44,6 +50,7 @@ class ConfigManager:
             "imgur": ImgurConfig,
             "github": GitHubConfig,
         }
+        self._discovered = False
 
     @property
     def config(self) -> AppConfig:
@@ -80,6 +87,9 @@ class ConfigManager:
         """
         if config_path is None:
             config_path = self._get_config_file()
+
+        # 确保动态发现（在读取文件前执行，便于识别新增 provider）
+        self._ensure_discovery()
 
         if not config_path.exists():
             logger.warning(f"Configuration file not found: {config_path}")
@@ -183,14 +193,10 @@ class ConfigManager:
         providers and saves them to the configuration file.
         """
         try:
+            self._ensure_discovery()
             default_providers = {
-                "oss": OSSConfig(name="oss"),
-                "cos": COSConfig(name="cos"),
-                "sms": SMSConfig(name="sms"),
-                "imgur": ImgurConfig(name="imgur"),
-                "github": GitHubConfig(name="github"),
+                name: cls(name=name) for name, cls in self._provider_classes.items()
             }
-
             self._config = AppConfig(providers=default_providers)
             self.save_config()
             logger.success("Default configuration created successfully")
@@ -294,6 +300,7 @@ class ConfigManager:
         list[str]
             List of supported provider names.
         """
+        self._ensure_discovery()
         return list(self._provider_classes.keys())
 
     def _get_config_file(self) -> Path:
@@ -310,3 +317,39 @@ class ConfigManager:
         config_dir = Path.home() / ".config" / "host-image-backup"
         config_dir.mkdir(parents=True, exist_ok=True)
         return config_dir / "config.yaml"
+
+    # -------- 动态发现 provider config --------
+    def _ensure_discovery(self) -> None:
+        if self._discovered:
+            return
+        self._discovered = True
+        if entry_points is None:  # pragma: no cover
+            logger.debug("entry_points 不可用，跳过 provider config 动态发现。")
+            return
+        try:
+            eps = entry_points()
+            group_name = "host_image_backup.provider_configs"
+            if hasattr(eps, "select"):
+                selected = eps.select(group=group_name)  # type: ignore[attr-defined]
+            else:
+                selected = eps.get(group_name, [])  # type: ignore[index]
+            added = []
+            for ep in selected:  # type: ignore[assignment]
+                name = getattr(ep, "name", None)
+                if not name or name in self._provider_classes:
+                    continue
+                try:
+                    obj = ep.load()
+                    if not isinstance(obj, type) or not issubclass(obj, ProviderConfig):
+                        logger.error(
+                            f"Entry point provider config '{name}' 不是 ProviderConfig 子类，忽略。"
+                        )
+                        continue
+                    self._provider_classes[name] = obj
+                    added.append(name)
+                except Exception as exc:  # pragma: no cover
+                    logger.error(f"加载 provider config entry point '{name}' 失败: {exc}")
+            if added:
+                logger.info("动态发现 provider config: " + ", ".join(sorted(added)))
+        except Exception as e:  # pragma: no cover
+            logger.error(f"扫描 provider config entry points 失败: {e}")

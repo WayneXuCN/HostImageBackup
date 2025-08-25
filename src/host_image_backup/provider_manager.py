@@ -1,7 +1,19 @@
 """Provider management module for Host Image Backup.
 
-This module handles provider instantiation, lifecycle management,
-and connection testing.
+本模块负责 Provider 的实例化、生命周期以及连接测试。
+
+扩展性改进：
+-----------------
+原实现通过硬编码字典 `_provider_classes` 维护内置 provider。
+现在增加基于 entry points (`host_image_backup.providers`) 的动态发现机制，
+允许第三方包仅通过在其 *pyproject.toml* 中声明入口点即可自动被加载。
+
+设计要点：
+1. 启动时懒加载扫描 entry points；失败或冲突有日志告警但不中断主流程。
+2. 入口点名称（ep.name）作为 provider_name，必须唯一，后注册的同名会被忽略。
+3. 兼容：仍保留显式 `register_provider` 方法与原有硬编码默认值作为回退。
+4. 性能：首次访问 `list_providers()` 或 `get_provider()` 时触发一次发现并缓存结果。
+5. 安全：仅接受继承自 `BaseProvider` 的类；否则忽略并记录错误。
 """
 
 from typing import Any
@@ -15,6 +27,12 @@ from .providers.github import GitHubProvider
 from .providers.imgur import ImgurProvider
 from .providers.oss import OSSProvider
 from .providers.sms import SMSProvider
+
+try:  # Python 3.10+ importlib.metadata
+    from importlib.metadata import EntryPoint, entry_points
+except Exception:  # pragma: no cover - 理论上不会触发
+    entry_points = None  # type: ignore
+    EntryPoint = object  # type: ignore
 
 
 class ProviderManager:
@@ -35,7 +53,7 @@ class ProviderManager:
         self._console = Console()
         self._logger = logger
 
-        # Provider class mapping
+        # Provider class mapping（初始包含内置）
         self._provider_classes: dict[str, type[BaseProvider]] = {
             "oss": OSSProvider,
             "cos": COSProvider,
@@ -43,6 +61,9 @@ class ProviderManager:
             "imgur": ImgurProvider,
             "github": GitHubProvider,
         }
+
+        # Flag: 是否已执行动态发现
+        self._discovered = False
 
         # Cache for provider instances
         self._provider_cache: dict[str, BaseProvider] = {}
@@ -60,6 +81,9 @@ class ProviderManager:
         BaseProvider or None
             Provider instance if successful, None otherwise.
         """
+        # 确保已执行动态发现
+        self._ensure_discovery()
+
         # Check cache first
         if provider_name in self._provider_cache:
             return self._provider_cache[provider_name]
@@ -211,6 +235,7 @@ class ProviderManager:
         list[str]
             List of provider names.
         """
+        self._ensure_discovery()
         return list(self._provider_classes.keys())
 
     def get_enabled_providers(self) -> list[str]:
@@ -293,6 +318,7 @@ class ProviderManager:
         Type[BaseProvider] or None
             Provider class if found, None otherwise.
         """
+        self._ensure_discovery()
         return self._provider_classes.get(provider_name)
 
     def register_provider(
@@ -309,6 +335,59 @@ class ProviderManager:
         """
         self._provider_classes[provider_name] = provider_class
         self._logger.info(f"Registered provider: {provider_name}")
+
+    # ---------- 动态发现内部实现 ----------
+    def _ensure_discovery(self) -> None:
+        """Lazy discover providers via entry points once.
+
+        幂等：仅首次调用执行。后续调用直接返回。
+        """
+        if self._discovered:
+            return
+        self._discovered = True
+
+        if entry_points is None:  # pragma: no cover
+            self._logger.warning(
+                "importlib.metadata.entry_points 不可用，跳过动态发现。"
+            )
+            return
+        try:
+            eps = entry_points()
+            # 兼容不同 Python 版本 (Py311: eps.select(group=...))
+            group_name = "host_image_backup.providers"
+            if hasattr(eps, "select"):
+                selected = eps.select(group=group_name)  # type: ignore[attr-defined]
+            else:  # Py310 返回字典
+                selected = eps.get(group_name, [])  # type: ignore[index]
+
+            added = []
+            for ep in selected:  # type: ignore[assignment]
+                name = getattr(ep, "name", None)
+                if not name or name in self._provider_classes:
+                    if name in self._provider_classes:
+                        self._logger.debug(
+                            f"Entry point provider '{name}' 已存在（被内置或已注册），忽略。"
+                        )
+                    continue
+                try:
+                    obj = ep.load()
+                    if not isinstance(obj, type) or not issubclass(obj, BaseProvider):
+                        self._logger.error(
+                            f"Entry point '{name}' 对象不是 BaseProvider 子类，已忽略。"
+                        )
+                        continue
+                    self._provider_classes[name] = obj
+                    added.append(name)
+                except Exception as exc:  # pragma: no cover - 仅记录
+                    self._logger.error(
+                        f"加载 provider entry point '{name}' 失败: {exc}"
+                    )
+            if added:
+                self._logger.info("动态发现 provider: " + ", ".join(sorted(added)))
+            else:
+                self._logger.debug("无新增 provider 动态发现结果。")
+        except Exception as e:  # pragma: no cover
+            self._logger.error(f"扫描 provider entry points 失败: {e}")
 
     def is_provider_supported(self, provider_name: str) -> bool:
         """Check if provider is supported.
