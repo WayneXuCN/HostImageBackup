@@ -171,8 +171,11 @@ class TestBackupServiceUpload:
             message="Upload successful",
         )
 
-        with patch.object(self.service, "get_provider", return_value=mock_provider), patch.object(
-            self.service, "metadata_manager", mock_metadata_manager.return_value
+        with (
+            patch.object(self.service, "get_provider", return_value=mock_provider),
+            patch.object(
+                self.service, "metadata_manager", mock_metadata_manager.return_value
+            ),
         ):
             result = self.service.upload_image(
                 provider_name="oss", file_path=test_file, verbose=False
@@ -200,8 +203,11 @@ class TestBackupServiceUpload:
             success=False, message="Upload failed: network error"
         )
 
-        with patch.object(self.service, "get_provider", return_value=mock_provider), patch.object(
-            self.service, "metadata_manager", mock_metadata_manager.return_value
+        with (
+            patch.object(self.service, "get_provider", return_value=mock_provider),
+            patch.object(
+                self.service, "metadata_manager", mock_metadata_manager.return_value
+            ),
         ):
             result = self.service.upload_image(
                 provider_name="oss", file_path=test_file, verbose=False

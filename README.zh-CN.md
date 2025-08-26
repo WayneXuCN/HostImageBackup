@@ -339,6 +339,12 @@ uv sync --all-extras
 pre-commit install
 ```
 
+**运行：**
+
+```bash
+uv run -m host_image_backup.cli
+```
+
 **测试：**
 
 ```bash
@@ -361,8 +367,8 @@ make lint
 
 1. 在 `src/host_image_backup/providers/` 中创建提供商类
 2. 实现来自 `BaseProvider` 的必需方法
-3. 在 `src/host_image_backup/config.py` 中添加配置类
-4. 更新服务/CLI 中的提供商注册表
+3. 在 `src/host_image_backup/config/config_models.py` 中添加配置类
+4. 在 `src/host_image_backup/providers/provider_manager.py` 中更新提供商注册表
 5. 添加测试
 
 ---

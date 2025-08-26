@@ -12,7 +12,7 @@ from .base import (
     BaseProvider,
     FileInfo,
     ImageInfo,
-    UploadResult,
+    SingleUploadResult,
 )
 
 
@@ -223,7 +223,7 @@ class COSProvider(BaseProvider):
 
     def upload_image(
         self, file_path: Path, remote_path: str | None = None
-    ) -> UploadResult:
+    ) -> SingleUploadResult:
         """Upload image to COS
 
         Parameters
@@ -236,7 +236,7 @@ class COSProvider(BaseProvider):
 
         Returns
         -------
-        UploadResult
+        SingleUploadResult
             The upload result containing success status and metadata.
         """
         try:
@@ -248,7 +248,7 @@ class COSProvider(BaseProvider):
 
             # Check if file exists
             if not file_path.exists():
-                return UploadResult(
+                return SingleUploadResult(
                     success=False, message=f"File not found: {file_path}"
                 )
 
@@ -261,7 +261,7 @@ class COSProvider(BaseProvider):
             # Generate URL
             url = f"https://{self.config.bucket}.cos.{self.config.region}.myqcloud.com/{remote_path}"
 
-            return UploadResult(
+            return SingleUploadResult(
                 success=True,
                 url=url,
                 message=f"Successfully uploaded {file_path.name} to {remote_path}",
@@ -275,7 +275,7 @@ class COSProvider(BaseProvider):
 
         except Exception as e:
             self.logger.error(f"Failed to upload image {file_path}: {e}")
-            return UploadResult(success=False, message=f"Upload failed: {str(e)}")
+            return SingleUploadResult(success=False, message=f"Upload failed: {str(e)}")
 
     def get_file_info(self, remote_path: str) -> FileInfo | None:
         """Get file information from COS

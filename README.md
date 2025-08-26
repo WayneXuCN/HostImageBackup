@@ -338,6 +338,12 @@ uv sync --all-extras
 pre-commit install
 ```
 
+**Running:**
+
+```bash
+uv run -m host_image_backup.cli
+```
+
 **Testing:**
 
 ```bash
@@ -360,8 +366,8 @@ make lint
 
 1. Create provider class in `src/host_image_backup/providers/`
 2. Implement required methods from `BaseProvider`
-3. Add config class in `src/host_image_backup/config.py`
-4. Update provider registry in service/CLI
+3. Add config class in `src/host_image_backup/config/config_models.py`
+4. Update provider registry in `src/host_image_backup/providers/provider_manager.py`
 5. Add tests
 6. Update documentation
 

@@ -1,13 +1,16 @@
-"""Styling utilities for CLI output that match Typer's aesthetic."""
-
 from pathlib import Path
 from typing import Any
 
-from rich.console import Console
-from rich.text import Text
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 from rich import print as rich_print
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+)
 
 console = Console()
 
@@ -65,7 +68,9 @@ def create_progress_bar() -> Progress:
     return Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        BarColumn(bar_width=40, style="blue", complete_style="green", finished_style="green"),
+        BarColumn(
+            bar_width=40, style="blue", complete_style="green", finished_style="green"
+        ),
         TaskProgressColumn(),
         TextColumn("[progress.percentage]{task.completed}/{task.total}"),
     )
@@ -76,9 +81,16 @@ def create_backup_progress_bar() -> Progress:
     return Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}", style="cyan"),
-        BarColumn(bar_width=50, style="dim blue", complete_style="green", finished_style="green"),
+        BarColumn(
+            bar_width=50,
+            style="dim blue",
+            complete_style="green",
+            finished_style="green",
+        ),
         TaskProgressColumn(style="bold"),
-        TextColumn("[progress.percentage]{task.completed}/{task.total} images", style="cyan"),
+        TextColumn(
+            "[progress.percentage]{task.completed}/{task.total} images", style="cyan"
+        ),
     )
 
 

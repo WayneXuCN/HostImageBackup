@@ -12,13 +12,13 @@ from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
 
-from .file_utils import FileUtils
-from .metadata import MetadataManager
+from ..utils.file_utils import FileUtils
+from ..utils.metadata import MetadataManager
 
 
 @dataclass
-class UploadResult:
-    """Upload operation result.
+class BatchUploadResult:
+    """Batch upload operation result.
 
     Parameters
     ----------
@@ -146,7 +146,7 @@ class UploadService:
         file_paths: list[Path],
         remote_prefix: str | None = None,
         verbose: bool = False,
-    ) -> UploadResult:
+    ) -> BatchUploadResult:
         """Upload multiple images to provider.
 
         Parameters
@@ -162,7 +162,7 @@ class UploadService:
 
         Returns
         -------
-        UploadResult
+        BatchUploadResult
             Upload operation result.
         """
         provider = self._provider_manager.get_provider(provider_name)
@@ -218,7 +218,7 @@ class UploadService:
             provider_name, success_count, error_count, total_files
         )
 
-        return UploadResult(
+        return BatchUploadResult(
             success_count=success_count,
             error_count=error_count,
             total_files=total_files,
@@ -473,7 +473,7 @@ class UploadService:
         Progress
             Rich progress bar context manager.
         """
-        from .styles import create_backup_progress_bar
+        from ..config.styles import create_backup_progress_bar
 
         return create_backup_progress_bar()
 
@@ -493,6 +493,6 @@ class UploadService:
         total : int
             Total number of files.
         """
-        from .styles import print_upload_summary
+        from ..config.styles import print_upload_summary
 
         print_upload_summary(provider_name, success, error, total)

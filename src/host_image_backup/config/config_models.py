@@ -51,7 +51,7 @@ class ProviderConfig(BaseModel):
 
         Typically used by internal providers; external plugins rely on entry points.
         """
-        ConfigRegistry.register(name, cls)  # type: ignore[arg-type]
+        ConfigRegistry.register(name, cls)
 
 
 class ConfigRegistry:
@@ -79,18 +79,20 @@ class ConfigRegistry:
         if cls._discovered:
             return
         cls._discovered = True
-        if entry_points is None:  # pragma: no cover
+        if entry_points is None:
             logger.debug("ConfigRegistry: entry_points not available, skip discovery")
             return
         try:
             eps = entry_points()
             group = "host_image_backup.provider_configs"
             if hasattr(eps, "select"):
-                selected = eps.select(group=group)  # type: ignore[attr-defined]
+                selected = eps.select(group=group)
             else:
-                selected = eps.get(group, [])  # type: ignore[index]
+                selected = eps[group] if isinstance(eps, dict) else []
+            if not isinstance(selected, list | tuple | set):
+                selected = [selected] if selected else []
             added = []
-            for ep in selected:  # type: ignore[assignment]
+            for ep in selected:
                 name = getattr(ep, "name", None)
                 if not name or name in cls._providers:
                     continue
@@ -103,14 +105,14 @@ class ConfigRegistry:
                         continue
                     cls._providers[name] = obj
                     added.append(name)
-                except Exception as exc:  # pragma: no cover
+                except Exception as exc:
                     logger.error(f"ConfigRegistry: failed loading '{name}': {exc}")
             if added:
                 logger.info(
                     "ConfigRegistry: discovered provider configs: "
                     + ", ".join(sorted(added))
                 )
-        except Exception as e:  # pragma: no cover
+        except Exception as e:
             logger.error(f"ConfigRegistry: discovery failed: {e}")
 
     @classmethod

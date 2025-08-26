@@ -1,8 +1,3 @@
-"""GitHub Provider
-
-This module provides the implementation for GitHub image hosting.
-"""
-
 from collections.abc import Iterator
 from pathlib import Path
 

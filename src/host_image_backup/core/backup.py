@@ -1,9 +1,3 @@
-"""Backup execution module for Host Image Backup.
-
-This module handles the execution of backup operations including
-downloading images from providers with concurrent processing and retry logic.
-"""
-
 import concurrent.futures
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,9 +6,9 @@ from typing import Any
 from loguru import logger
 from rich.console import Console
 
-from .file_utils import FileUtils
-from .metadata import MetadataManager
-from .providers import BaseProvider, ImageInfo
+from ..providers.base import BaseProvider, ImageInfo
+from ..utils.file_utils import FileUtils
+from ..utils.metadata import MetadataManager
 
 
 @dataclass
@@ -414,7 +408,7 @@ class BackupExecutor:
         Progress
             Rich progress bar context manager.
         """
-        from .styles import create_backup_progress_bar
+        from ..config.styles import create_backup_progress_bar
 
         return create_backup_progress_bar()
 
@@ -434,7 +428,7 @@ class BackupExecutor:
         skip : int
             Number of skipped downloads.
         """
-        from .styles import print_backup_summary
+        from ..config.styles import print_backup_summary
 
         print_backup_summary(provider_name, success, error, skip)
 

@@ -1,16 +1,10 @@
-"""Configuration management module for Host Image Backup.
-
-This module handles all configuration-related operations including loading,
-validating, and saving application and provider configurations.
-"""
-
 from pathlib import Path
 from typing import Any
 
 import yaml
 from loguru import logger
 
-from .config import (
+from .config_models import (
     AppConfig,
     COSConfig,
     GitHubConfig,
@@ -20,11 +14,11 @@ from .config import (
     SMSConfig,
 )
 
-try:  # Python 3.10+
+try:
     from importlib.metadata import EntryPoint, entry_points
-except Exception:  # pragma: no cover
-    entry_points = None  # type: ignore
-    EntryPoint = object  # type: ignore
+except Exception:
+    entry_points = None
+    EntryPoint = object
 
 
 class ConfigManager:
@@ -88,7 +82,7 @@ class ConfigManager:
         if config_path is None:
             config_path = self._get_config_file()
 
-        # 确保动态发现（在读取文件前执行，便于识别新增 provider）
+        # Ensure dynamic discovery (execute before reading file to recognize new providers)
         self._ensure_discovery()
 
         if not config_path.exists():
@@ -318,23 +312,27 @@ class ConfigManager:
         config_dir.mkdir(parents=True, exist_ok=True)
         return config_dir / "config.yaml"
 
-    # -------- 动态发现 provider config --------
+    # -------- Dynamic discovery of provider config --------
     def _ensure_discovery(self) -> None:
         if self._discovered:
             return
         self._discovered = True
-        if entry_points is None:  # pragma: no cover
-            logger.debug("entry_points 不可用，跳过 provider config 动态发现。")
+        if entry_points is None:
+            logger.debug(
+                "entry_points not available, skipping provider config dynamic discovery."
+            )
             return
         try:
             eps = entry_points()
             group_name = "host_image_backup.provider_configs"
             if hasattr(eps, "select"):
-                selected = eps.select(group=group_name)  # type: ignore[attr-defined]
+                selected = eps.select(group=group_name)
+            elif isinstance(eps, dict):
+                selected = eps.get(group_name, [])
             else:
-                selected = eps.get(group_name, [])  # type: ignore[index]
+                selected = []
             added = []
-            for ep in selected:  # type: ignore[assignment]
+            for ep in selected:
                 name = getattr(ep, "name", None)
                 if not name or name in self._provider_classes:
                     continue
@@ -342,14 +340,19 @@ class ConfigManager:
                     obj = ep.load()
                     if not isinstance(obj, type) or not issubclass(obj, ProviderConfig):
                         logger.error(
-                            f"Entry point provider config '{name}' 不是 ProviderConfig 子类，忽略。"
+                            f"Entry point provider config '{name}' is not a subclass of ProviderConfig, ignored."
                         )
                         continue
                     self._provider_classes[name] = obj
                     added.append(name)
-                except Exception as exc:  # pragma: no cover
-                    logger.error(f"加载 provider config entry point '{name}' 失败: {exc}")
+                except Exception as exc:
+                    logger.error(
+                        f"Failed to load provider config entry point '{name}': {exc}"
+                    )
             if added:
-                logger.info("动态发现 provider config: " + ", ".join(sorted(added)))
-        except Exception as e:  # pragma: no cover
-            logger.error(f"扫描 provider config entry points 失败: {e}")
+                logger.info(
+                    "Dynamically discovered provider config: "
+                    + ", ".join(sorted(added))
+                )
+        except Exception as e:
+            logger.error(f"Failed to scan provider config entry points: {e}")

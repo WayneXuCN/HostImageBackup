@@ -1,22 +1,16 @@
-"""Main backup service coordinator for Host Image Backup.
-
-This module acts as a coordinator for all backup operations,
-delegating specific tasks to specialized service modules.
-"""
-
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
 from rich.console import Console
 
-from .backup_executor import BackupExecutor
-from .compression_service import CompressionService
-from .config import AppConfig
-from .config_manager import ConfigManager
-from .metadata import MetadataManager
-from .provider_manager import ProviderManager
-from .upload_service import UploadService
+from ..config.config_manager import ConfigManager
+from ..config.config_models import AppConfig
+from ..providers.provider_manager import ProviderManager
+from ..utils.compression import CompressionService
+from ..utils.metadata import MetadataManager
+from .backup import BackupExecutor
+from .upload import UploadService
 
 
 class BackupService:

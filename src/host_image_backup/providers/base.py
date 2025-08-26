@@ -79,8 +79,8 @@ class FileInfo:
 
 
 @dataclass
-class UploadResult:
-    """Upload result information
+class SingleUploadResult:
+    """Single file upload result information
 
     Parameters
     ----------
@@ -165,7 +165,7 @@ class BaseProvider(ABC):
     @abstractmethod
     def upload_image(
         self, file_path: Path, remote_path: str | None = None
-    ) -> UploadResult:
+    ) -> SingleUploadResult:
         """Upload image to the provider
 
         Parameters

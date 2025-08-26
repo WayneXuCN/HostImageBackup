@@ -1,9 +1,3 @@
-"""File utility module for Host Image Backup.
-
-This module provides file-related utility functions including
-filename sanitization, hash calculation, and path operations.
-"""
-
 import hashlib
 from pathlib import Path
 
@@ -226,7 +220,9 @@ class FileUtils:
         try:
             return file_path.relative_to(base_path)
         except ValueError as err:
-            raise ValueError(f"File {file_path} is not under base path {base_path}") from err
+            raise ValueError(
+                f"File {file_path} is not under base path {base_path}"
+            ) from err
 
     @staticmethod
     def format_file_size(size_bytes: int) -> str:

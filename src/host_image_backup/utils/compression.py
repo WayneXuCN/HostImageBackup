@@ -1,9 +1,3 @@
-"""Compression service module for Host Image Backup.
-
-This module handles image compression operations including
-single file compression and batch compression with progress tracking.
-"""
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,8 +5,8 @@ from typing import Any
 from loguru import logger
 from rich.console import Console
 
+from ..providers.base import SUPPORTED_IMAGE_EXTENSIONS
 from .file_utils import FileUtils
-from .providers.base import SUPPORTED_IMAGE_EXTENSIONS
 
 
 @dataclass
@@ -366,7 +360,7 @@ class CompressionService:
         Progress
             Rich progress bar context manager.
         """
-        from .styles import create_backup_progress_bar
+        from ..config.styles import create_backup_progress_bar
 
         return create_backup_progress_bar()
 
@@ -396,7 +390,7 @@ class CompressionService:
         compressed_size : int
             Total compressed size in bytes.
         """
-        from .styles import print_compression_summary
+        from ..config.styles import print_compression_summary
 
         print_compression_summary(success, error, skip, total)
 

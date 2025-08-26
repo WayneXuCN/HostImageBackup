@@ -4,9 +4,8 @@ import typer
 from loguru import logger
 from rich import print
 
-from .config import AppConfig
-from .service import BackupService
-from .styles import (
+from .config.config_models import AppConfig
+from .config.styles import (
     console,
     print_duplicates,
     print_error,
@@ -19,6 +18,7 @@ from .styles import (
     print_success,
     print_warning,
 )
+from .core.service import BackupService
 
 app = typer.Typer(
     name="host-image-backup",
@@ -103,7 +103,7 @@ def main(
         help="Configuration file path [default: ~/.config/host-image-backup/config.yaml]",
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed logs"),
-    ctx: typer.Context = typer.Option(None),  # type: ignore
+    ctx: typer.Context = typer.Option(None),
 ) -> None:
     setup_logging(verbose)
 
@@ -121,10 +121,12 @@ def main(
     # Create backup service
     backup_service = BackupService(app_config)
 
-    # Store in app context
-    app.config = app_config  # type: ignore
-    app.service = backup_service  # type: ignore
-    app.verbose = verbose  # type: ignore
+    # Store in context object
+    ctx.obj = {
+        "config": app_config,
+        "service": backup_service,
+        "verbose": verbose,
+    }
 
 
 @config_app.command("init")
@@ -162,11 +164,12 @@ def backup_start(
         "--skip-existing/--no-skip-existing",
         help="Skip existing files [default: skip-existing]",
     ),
+    ctx: typer.Context = typer.Option(None),
 ) -> None:
     """Backup images from the specified provider"""
-    service: BackupService = app.service  # type: ignore
-    config: AppConfig = app.config  # type: ignore
-    verbose: bool = app.verbose  # type: ignore
+    service: BackupService = ctx.obj["service"]
+    config: AppConfig = ctx.obj["config"]
+    verbose: bool = ctx.obj["verbose"]
 
     # Check if provider exists
     if provider not in service.list_providers():
@@ -210,11 +213,12 @@ def _backup_all_impl(
     output: Path | None,
     limit: int | None,
     skip_existing: bool,
+    ctx: typer.Context,
 ) -> None:
     """Backup images from all enabled providers (shared implementation)"""
-    service: BackupService = app.service  # type: ignore
-    config: AppConfig = app.config  # type: ignore
-    verbose: bool = app.verbose  # type: ignore
+    service: BackupService = ctx.obj["service"]
+    config: AppConfig = ctx.obj["config"]
+    verbose: bool = ctx.obj["verbose"]
 
     output_dir = output if output else Path(config.default_output_dir)
     enabled_providers = [
@@ -266,6 +270,7 @@ def _backup_all_impl(
     if success_count < len(enabled_providers):
         raise typer.Exit(code=1)
 
+
 @backup_app.command("all")
 def backup_all(
     output: Path | None = typer.Option(
@@ -279,8 +284,9 @@ def backup_all(
         "--skip-existing/--no-skip-existing",
         help="Skip existing files [default: skip-existing]",
     ),
+    ctx: typer.Context = typer.Option(None),
 ) -> None:
-    _backup_all_impl(output, limit, skip_existing)
+    _backup_all_impl(output, limit, skip_existing, ctx)
 
 
 @app.command("backup-all")
@@ -296,15 +302,16 @@ def backup_all_cli(
         "--skip-existing/--no-skip-existing",
         help="Skip existing files [default: skip-existing]",
     ),
+    ctx: typer.Context = typer.Option(None),
 ) -> None:
-    _backup_all_impl(output, limit, skip_existing)
+    _backup_all_impl(output, limit, skip_existing, ctx)
 
 
 @provider_app.command("list")
-def provider_list() -> None:
+def provider_list(ctx: typer.Context = typer.Option(None)) -> None:
     """List all available providers"""
-    service: BackupService = app.service  # type: ignore
-    config: AppConfig = app.config  # type: ignore
+    service: BackupService = ctx.obj["service"]
+    config: AppConfig = ctx.obj["config"]
 
     providers = service.list_providers()
 
@@ -322,9 +329,12 @@ def provider_list() -> None:
 
 
 @provider_app.command("test")
-def provider_test(provider: str = typer.Argument(..., help="Provider name")) -> None:
+def provider_test(
+    provider: str = typer.Argument(..., help="Provider name"),
+    ctx: typer.Context = typer.Option(None),
+) -> None:
     """Test connection to the specified provider"""
-    service: BackupService = app.service  # type: ignore
+    service: BackupService = ctx.obj["service"]
 
     if provider not in service.list_providers():
         print_error(f"Unknown provider: {provider}")
@@ -341,9 +351,12 @@ def provider_test(provider: str = typer.Argument(..., help="Provider name")) -> 
 
 
 @provider_app.command("info")
-def provider_info(provider: str = typer.Argument(..., help="Provider name")) -> None:
+def provider_info(
+    provider: str = typer.Argument(..., help="Provider name"),
+    ctx: typer.Context = typer.Option(None),
+) -> None:
     """Show detailed information for the specified provider"""
-    service: BackupService = app.service  # type: ignore
+    service: BackupService = ctx.obj["service"]
 
     if provider not in service.list_providers():
         print_error(f"Unknown provider: {provider}")
@@ -361,10 +374,11 @@ def upload(
     remote_path: str | None = typer.Option(
         None, "--remote-path", "-r", help="Remote path for the file"
     ),
+    ctx: typer.Context = typer.Option(None),
 ) -> None:
     """Upload a single image to the specified provider"""
-    service: BackupService = app.service  # type: ignore
-    verbose: bool = app.verbose  # type: ignore
+    service: BackupService = ctx.obj["service"]
+    verbose: bool = ctx.obj["verbose"]
 
     # Check if provider exists
     if provider not in service.list_providers():
@@ -412,10 +426,11 @@ def upload_all(
     limit: int | None = typer.Option(
         None, "--limit", "-l", help="Limit number of files to upload"
     ),
+    ctx: typer.Context = typer.Option(None),
 ) -> None:
     """Upload multiple images from a directory to the specified provider"""
-    service: BackupService = app.service  # type: ignore
-    verbose: bool = app.verbose  # type: ignore
+    service: BackupService = ctx.obj["service"]
+    verbose: bool = ctx.obj["verbose"]
 
     # Check if provider exists
     if provider not in service.list_providers():
@@ -485,9 +500,10 @@ def stats(
     detailed: bool = typer.Option(
         False, "--detailed", "-d", help="Show detailed statistics by operation type"
     ),
+    ctx: typer.Context = typer.Option(None),
 ) -> None:
     """Show backup statistics and summary information"""
-    service: BackupService = app.service  # type: ignore
+    service: BackupService = ctx.obj["service"]
 
     stats = service.metadata_manager.get_statistics()
     print_statistics(stats)
@@ -508,9 +524,10 @@ def history(
     limit: int | None = typer.Option(
         None, "--limit", "-l", help="Limit number of records to show"
     ),
+    ctx: typer.Context = typer.Option(None),
 ) -> None:
     """Show backup operation history records"""
-    service: BackupService = app.service  # type: ignore
+    service: BackupService = ctx.obj["service"]
 
     records = service.metadata_manager.get_backup_records(
         operation=None,
@@ -522,9 +539,9 @@ def history(
 
 
 @data_app.command("duplicates")
-def duplicates() -> None:
+def duplicates(ctx: typer.Context = typer.Option(None)) -> None:
     """Find and display duplicate files"""
-    service: BackupService = app.service  # type: ignore
+    service: BackupService = ctx.obj["service"]
 
     duplicates = service.metadata_manager.find_duplicates()
     print_duplicates(duplicates)
@@ -564,10 +581,11 @@ def compress(
         "--skip-existing/--overwrite-existing",
         help="Skip files that already exist in output directory",
     ),
+    ctx: typer.Context = typer.Option(None),
 ) -> None:
     """Compress images with high fidelity"""
-    service: BackupService = app.service  # type: ignore
-    verbose: bool = app.verbose  # type: ignore
+    service: BackupService = ctx.obj["service"]
+    verbose: bool = ctx.obj["verbose"]
 
     # Validate format if provided
     if format and format.upper() not in ["JPEG", "PNG", "WEBP"]:
